@@ -7,12 +7,16 @@ set(3516_SDK_PATH
     /home/cjj/Downloads/Hi3516CV500_SDK_V2.0.2.0
 )
 
+
 include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
 )
+
+
+
 
 # 原本一些宏是Makefile定义的，这里定义一下
 add_definitions(-DSENSOR0_TYPE=GC2053_TEST)
@@ -21,6 +25,19 @@ add_definitions(-DSENSOR1_TYPE=GC2053_TEST)
 link_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/lib/
 )
+
+# 需要交叉编译一下
+# ffmpeg
+set(FFMPEG_PATH
+    /home/cjj/study/third_party/ffmpeg
+)
+include_directories(
+    ${FFMPEG_PATH}/include
+)
+link_directories(
+    ${FFMPEG_PATH}/lib/
+)
+
 
 aux_source_directory(${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/ 3516_COMMON_SOURCE)
 # aux_source_directory(${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/ 3516_ADP_SOURCE)
@@ -38,8 +55,21 @@ add_executable(
     ${3516_VIO_SMP_SOURCE}
 )
 
-set(
-    MPP_LIBA
+# 库，使用全名指定链接静态库
+
+set(FFMPEG_LIBA
+    libavcodec.a   
+    libavfilter.a  
+    libavutil.a    
+    libswresample.a  
+    libavdevice.a  
+    libavformat.a  
+    libpostproc.a  
+    libswscale.a
+)
+
+
+set(MPP_LIBA
     libmpi.a
     libhdmi.a
     libsecurec.a
@@ -62,15 +92,13 @@ set(
     libhifisheyecalibrate.a  
 )
 
-set(
-    AUDIO_LIBA
+set(AUDIO_LIBA
     libVoiceEngine.a
     libupvqe.a
     libdnvqe.a
 )
 
-set(
-    SENSOR_LIBA
+set(SENSOR_LIBA
     libsns_imx327.a
     libsns_imx327_2l.a
     libsns_imx307.a
@@ -96,5 +124,20 @@ target_link_libraries(
     ${SENSOR_LIBA}
 )
 
+set(SAMPLE_1_NAME sample_1)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_1 SAMPLE_1_SOURCE)
+add_executable(
+    ${SAMPLE_1_NAME}
+    ${3516_COMMON_SOURCE}
+    ${SAMPLE_1_SOURCE}
+)
+target_link_libraries(
+    ${SAMPLE_1_NAME}
+    m dl pthread
+    ${MPP_LIBA}
+    ${AUDIO_LIBA}
+    ${SENSOR_LIBA}
+    ${FFMPEG_LIBA}
+)
 
 
