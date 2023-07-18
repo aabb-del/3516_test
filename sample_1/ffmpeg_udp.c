@@ -30,7 +30,12 @@ extern "C"
 #endif
 
 
+
+#if 1
 #define UDP 1
+#else
+#define RTSP 1
+#endif
 
 #define UDP_TARGET_IP "192.168.3.16"
 
@@ -64,6 +69,8 @@ int mem_udp_main()
     printf("ffmpeg udp stream started!\n");
 #if UDP
     char *out_filename = "udp://"UDP_TARGET_IP":1234";
+#elif RTSP
+    char *out_filename = "rtsp://"UDP_TARGET_IP":1234";
 #else
     char *out_filename = "rtmp://192.168.3.45/live/livestream";
 #endif
@@ -178,6 +185,12 @@ int mem_udp_main()
  
 #if UDP
     avformat_alloc_output_context2(&octx, NULL, "mpegts", out_filename);
+#elif RTSP
+    avformat_alloc_output_context2(&octx, NULL, "RTSP", out_filename);
+    //使用tcp协议传输
+    av_opt_set(octx->priv_data, "rtsp_transport", "udp", 0);
+    //检查所有流是否都有数据，如果没有数据会等待max_interleave_delta微秒
+    octx->max_interleave_delta = 1000000;
 #else 
     avformat_alloc_output_context2(&octx, 0, "flv", out_filename);
 #endif

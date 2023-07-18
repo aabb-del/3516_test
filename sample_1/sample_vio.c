@@ -17,6 +17,7 @@ extern "C" {
 
 #include "sample_comm.h"
 #include "ffmpeg_udp.h"
+#include "expand.h"
 
 HI_VOID SAMPLE_VIO_MsgInit(HI_VOID)
 {
@@ -2726,6 +2727,56 @@ void* udp_stream_thread(void* arg)
     mem_udp_main();
 }
 
+
+
+static int fd = -1;
+
+/**
+ * @brief 编码数据处理回调，写到FIFO里面去
+ * 
+ * @param VeChn 
+ * @param pstStream 
+ */
+void VENC_STREAM_CALLBACK_TO_FIFO(VENC_CHN VeChn,VENC_STREAM_S* pstStream)
+{
+    int i = VeChn;
+    if(i == 0)
+    {
+        if(fd<0)
+        {
+            char fifo_name[100];
+            int status;
+            /* 创建FIFO并打开 */
+            snprintf(fifo_name,32, "/tmp/stream_chn%d_fifo", i);    
+            if(access(fifo_name,F_OK) < 0){
+                status = mkfifo(fifo_name,S_IRWXU);
+                if(status == -1){
+                    perror("mkfifo");
+                    exit(1);	
+                }
+            }
+
+            fd = open(fifo_name,O_WRONLY); 
+            if(fd == -1){
+                printf("open %s failed!\n",fifo_name);
+                perror("open");
+                
+                exit(1);
+            }
+            else{
+                printf("open %s successful!\n",fifo_name);
+            }
+        }
+
+        /* 写入数据到FIFO */
+        for (i = 0; i < pstStream->u32PackCount; i++)
+        {
+            write(fd,pstStream->pstPack[i].pu8Addr + pstStream->pstPack[i].u32Offset,
+                    pstStream->pstPack[i].u32Len - pstStream->pstPack[i].u32Offset);
+        }
+    }
+}
+
 HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
 {
     HI_S32             s32Ret = HI_SUCCESS;
@@ -2759,7 +2810,7 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
     VPSS_CHN_ATTR_S    astVpssChnAttr[VPSS_MAX_PHY_CHN_NUM];
 
     VENC_CHN           VencChn[1]  = {0};
-    PAYLOAD_TYPE_E     enType      = PT_H264;
+    PAYLOAD_TYPE_E     enType      = PT_H265;
     SAMPLE_RC_E        enRcMode    = SAMPLE_RC_CBR;
     HI_U32             u32Profile  = 0;
     HI_BOOL            bRcnRefShareBuf = HI_FALSE;
@@ -2918,7 +2969,7 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
         goto EXIT5;
     }
 
-
+    VENC_SetStreamCallback(VENC_STREAM_CALLBACK_TO_FIFO);
     s32Ret = SAMPLE_COMM_VENC_StartGetStream(VencChn, sizeof(VencChn)/sizeof(VENC_CHN));
     if (HI_SUCCESS != s32Ret)
     {
@@ -2951,6 +3002,7 @@ EXIT:
     SAMPLE_COMM_SYS_Exit();
     return s32Ret;
 }
+
 
 
 

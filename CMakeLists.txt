@@ -10,7 +10,8 @@ set(3516_SDK_PATH
 
 include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
-    ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/
+    # ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/
+    ./common
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
 )
@@ -19,6 +20,7 @@ include_directories(
 
 
 # 原本一些宏是Makefile定义的，这里定义一下
+# 传感器类型
 add_definitions(-DSENSOR0_TYPE=GC2053_TEST)
 add_definitions(-DSENSOR1_TYPE=GC2053_TEST)
 
@@ -39,7 +41,7 @@ link_directories(
 )
 
 
-aux_source_directory(${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/ 3516_COMMON_SOURCE)
+aux_source_directory(./common 3516_COMMON_SOURCE)
 # aux_source_directory(${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/ 3516_ADP_SOURCE)
 # 似乎要下一个库
 # aux_source_directory(${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/src/ 3516_MP3DEC_SOURCE)
@@ -124,6 +126,7 @@ target_link_libraries(
     ${SENSOR_LIBA}
 )
 
+
 set(SAMPLE_1_NAME sample_1)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_1 SAMPLE_1_SOURCE)
 add_executable(
@@ -133,6 +136,23 @@ add_executable(
 )
 target_link_libraries(
     ${SAMPLE_1_NAME}
+    m dl pthread
+    ${MPP_LIBA}
+    ${AUDIO_LIBA}
+    ${SENSOR_LIBA}
+    ${FFMPEG_LIBA}
+)
+
+
+set(SAMPLE_2_NAME sample_2_mjpeg_jpeg)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_2 SAMPLE_2_SOURCE)
+add_executable(
+    ${SAMPLE_2_NAME}
+    ${3516_COMMON_SOURCE}
+    ${SAMPLE_2_SOURCE}
+)
+target_link_libraries(
+    ${SAMPLE_2_NAME}
     m dl pthread
     ${MPP_LIBA}
     ${AUDIO_LIBA}
