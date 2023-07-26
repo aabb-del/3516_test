@@ -12,6 +12,7 @@ extern "C" {
 #include <signal.h>
 
 #include "sample_comm.h"
+#include "expand.h"
 
 #ifdef HI_FPGA
     #define PIC_SIZE   PIC_1080P
@@ -359,6 +360,40 @@ Begin_Get:
     return enRcMode;
 }
 
+static HI_S32 gs_s32SnapCnt = 0;
+/**
+ * @brief 抓拍处理函数，考虑到jpeg的抓拍保存和265的码流处理一致，只是前者只需要写一个文件，这里使用回调的方式去保存jpeg
+ * 
+ * @param VeChn 
+ * @param pstStream 
+ */
+void VENC_STREAM_CALLBACK_TO_JPEG(VENC_CHN VeChn,VENC_STREAM_S* pstStream)
+{
+    int i = VeChn;
+    /* 编码1是jpeg，其他不管 */
+    if(VeChn == 1)
+    {
+        // SAMPLE_PRT("VENC_STREAM_CALLBACK_TO_JPEG\n");
+        char acFile[FILE_NAME_LEN]    = {0};
+        FILE* pFile;
+
+        snprintf(acFile, FILE_NAME_LEN, "snap_chn%d.jpg", VeChn);
+        pFile = fopen(acFile, "wb");
+        if (pFile == NULL)
+        {
+            SAMPLE_PRT("open file err\n");
+            return ;
+        }
+
+        for (i = 0; i < pstStream->u32PackCount; i++)
+        {
+            fwrite(pstStream->pstPack[i].pu8Addr + pstStream->pstPack[i].u32Offset,
+                pstStream->pstPack[i].u32Len - pstStream->pstPack[i].u32Offset, 1, pFile);
+            fflush(pFile);
+        }
+        
+    }
+}
 
 
 HI_S32 SAMPLE_VENC_MJPEG_JPEG(void)
@@ -452,7 +487,8 @@ HI_S32 SAMPLE_VENC_MJPEG_JPEG(void)
      start stream venc
     ******************************************/
 
-    enRcMode = SAMPLE_VENC_GetRcMode();
+    // enRcMode = SAMPLE_VENC_GetRcMode();
+    enRcMode = SAMPLE_RC_CBR;
 
     s32Ret = SAMPLE_COMM_VENC_GetGopAttr(enGopMode,&stGopAttr);
     if (HI_SUCCESS != s32Ret)
@@ -495,7 +531,8 @@ HI_S32 SAMPLE_VENC_MJPEG_JPEG(void)
     /******************************************
      stream save process
     ******************************************/
-    s32Ret = SAMPLE_COMM_VENC_StartGetStream(VencChn,1);
+    VENC_SetStreamCallback(VENC_STREAM_CALLBACK_TO_JPEG);
+    s32Ret = SAMPLE_COMM_VENC_StartGetStream(VencChn,2);
     if (HI_SUCCESS != s32Ret)
     {
         SAMPLE_PRT("Start Venc failed!\n");
@@ -534,6 +571,27 @@ HI_S32 SAMPLE_VENC_MJPEG_JPEG(void)
     {
         SAMPLE_PRT("vo bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
         goto EXIT_VENC_JPEGE_UnBind;
+    }
+
+
+    while(1)
+    {
+        /* 前面初始化未调用这个，回调收不到图像 */
+        VENC_RECV_PIC_PARAM_S  stRecvParam;
+
+        /******************************************
+         step 2:  Start Recv Venc Pictures
+        ******************************************/
+        stRecvParam.s32RecvPicNum = 1;
+        /* 开启编码通道接收输入图像，允许指定接收帧数，超出指定的帧数后自动停止接收图像。 */
+        /* 需要接收的图像帧数设置为-1 时表示不指定帧数 */
+        s32Ret = HI_MPI_VENC_StartRecvFrame(VencChn[1], &stRecvParam);
+        if (HI_SUCCESS != s32Ret)
+        {
+            SAMPLE_PRT("HI_MPI_VENC_StartRecvPic faild with%#x!\n", s32Ret);
+            return HI_FAILURE;
+        }
+        sleep(1);
     }
 
 

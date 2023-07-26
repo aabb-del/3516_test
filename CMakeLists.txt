@@ -161,3 +161,19 @@ target_link_libraries(
 )
 
 
+set(SAMPLE_3_NAME sample_3_vb)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_3 SAMPLE_3_SOURCE)
+add_executable(
+    ${SAMPLE_3_NAME}
+    ${3516_COMMON_SOURCE}
+    ${SAMPLE_3_SOURCE}
+)
+target_link_libraries(
+    ${SAMPLE_3_NAME}
+    m dl pthread
+    ${MPP_LIBA}
+    ${AUDIO_LIBA}
+    ${SENSOR_LIBA}
+    ${FFMPEG_LIBA}
+)
+

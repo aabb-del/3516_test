@@ -52,6 +52,7 @@ HI_CHAR* DstBuf = NULL;
 
 
 #define FLAG_ENABLE_FIFO 0
+#define FLAG_ENABLE_JPEG_SAVE 0
 
 #ifdef __READ_ALL_FILE__
 static HI_S32 FileTrans_GetThmFromJpg(HI_CHAR* JPGPath, HI_U32* DstSize)
@@ -2203,6 +2204,10 @@ HI_VOID* SAMPLE_COMM_VENC_GetVencStreamProc(HI_VOID* p)
                     *******************************************************/
                     if(PT_JPEG == enPayLoadType[i])
                     {
+#if !FLAG_ENABLE_JPEG_SAVE
+                        /* 直接释放 */
+                        goto EXIT_RELEASE;
+#endif
                         snprintf(aszFileName[i],32, "stream_chn%d_%d%s", i, u32PictureCnt[i],szFilePostfix);
                         pFile[i] = fopen(aszFileName[i], "wb");
                         if (!pFile[i])
@@ -2214,10 +2219,7 @@ HI_VOID* SAMPLE_COMM_VENC_GetVencStreamProc(HI_VOID* p)
 #if FLAG_ENABLE_FIFO
                     SAMPLE_COMM_VENC_SaveStreamToFifo(fifoFds[i],&stStream);
 #endif 
-                    if(gVencStreamCallback!=NULL)
-                    {
-                        gVencStreamCallback(i,&stStream);
-                    }
+
                 
 
 #ifndef __HuaweiLite__
@@ -2232,10 +2234,17 @@ HI_VOID* SAMPLE_COMM_VENC_GetVencStreamProc(HI_VOID* p)
                         SAMPLE_PRT("save stream failed!\n");
                         break;
                     }
+EXIT_RELEASE:
+                    if(gVencStreamCallback != NULL)
+                    {
+                        gVencStreamCallback(i,&stStream);
+                    }
+                    
                     /*******************************************************
                      step 2.6 : release stream
                      *******************************************************/
                     s32Ret = HI_MPI_VENC_ReleaseStream(i, &stStream);
+
                     if (HI_SUCCESS != s32Ret)
                     {
                         SAMPLE_PRT("HI_MPI_VENC_ReleaseStream failed!\n");
@@ -2249,11 +2258,13 @@ HI_VOID* SAMPLE_COMM_VENC_GetVencStreamProc(HI_VOID* p)
                     *******************************************************/
                     free(stStream.pstPack);
                     stStream.pstPack = NULL;
+#if FLAG_ENABLE_JPEG_SAVE
                     u32PictureCnt[i]++;
                     if(PT_JPEG == enPayLoadType[i])
                     {
                         fclose(pFile[i]);
                     }
+#endif
                 }
             }
         }

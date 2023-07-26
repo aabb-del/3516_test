@@ -1,3 +1,13 @@
+/**
+ * @file expand.h
+ * @author your name (you@domain.com)
+ * @brief 在官方例子上进行最小的修改来扩充一些功能
+ * @version 0.1
+ * @date 2023-07-19
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
 #ifndef EXPAND_H
 #define EXPAND_H
 
