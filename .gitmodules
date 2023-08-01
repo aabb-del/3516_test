@@ -1,0 +1,3 @@
+[submodule "submodule_rtsp_server/RtspServer"]
+	path = submodule_rtsp_server/RtspServer
+	url = https://github.com/aabb-del/RtspServer.git

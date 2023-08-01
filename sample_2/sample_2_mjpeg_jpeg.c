@@ -382,6 +382,7 @@ void VENC_STREAM_CALLBACK_TO_JPEG(VENC_CHN VeChn,VENC_STREAM_S* pstStream)
         if (pFile == NULL)
         {
             SAMPLE_PRT("open file err\n");
+            perror("open file err");
             return ;
         }
 
@@ -392,6 +393,7 @@ void VENC_STREAM_CALLBACK_TO_JPEG(VENC_CHN VeChn,VENC_STREAM_S* pstStream)
             fflush(pFile);
         }
         
+        fclose(pFile);
     }
 }
 
@@ -591,7 +593,7 @@ HI_S32 SAMPLE_VENC_MJPEG_JPEG(void)
             SAMPLE_PRT("HI_MPI_VENC_StartRecvPic faild with%#x!\n", s32Ret);
             return HI_FAILURE;
         }
-        sleep(1);
+        usleep(100000);
     }
 
 
