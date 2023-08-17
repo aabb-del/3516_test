@@ -60,6 +60,14 @@ void VENC_STREAM_CALLBACK_TO_RTSP_SERVER(VENC_CHN VeChn,VENC_STREAM_S* pstStream
     }
 }
 
+#if __cplusplus
+extern "C" {
+#endif
+extern HI_VOID SAMPLE_IVE_Md(HI_VOID);
+#if __cplusplus
+}
+#endif
+
 HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
 {
     HI_S32             s32Ret = HI_SUCCESS;
@@ -84,13 +92,13 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
     PIXEL_FORMAT_E     enPixFormat    = PIXEL_FORMAT_YVU_SEMIPLANAR_420;
     VIDEO_FORMAT_E     enVideoFormat  = VIDEO_FORMAT_LINEAR;
     COMPRESS_MODE_E    enCompressMode = COMPRESS_MODE_NONE;
-    VI_VPSS_MODE_E     enMastPipeMode = VI_ONLINE_VPSS_ONLINE;
+    VI_VPSS_MODE_E     enMastPipeMode = VI_ONLINE_VPSS_OFFLINE;
 
     VPSS_GRP           VpssGrp        = 0;
     VPSS_GRP_ATTR_S    stVpssGrpAttr;
     VPSS_CHN           VpssChn        = VPSS_CHN0;
     HI_BOOL            abChnEnable[VPSS_MAX_PHY_CHN_NUM] = {0};
-    VPSS_CHN_ATTR_S    astVpssChnAttr[VPSS_MAX_PHY_CHN_NUM];
+    VPSS_CHN_ATTR_S    astVpssChnAttr[VPSS_MAX_PHY_CHN_NUM] = {0};
 
     VENC_CHN           VencChn[1]  = {0};
     PAYLOAD_TYPE_E     enType      = PT_H264;
@@ -175,22 +183,27 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
     stVpssGrpAttr.stNrAttr.enCompressMode        = COMPRESS_MODE_FRAME;
     stVpssGrpAttr.stNrAttr.enNrMotionMode        = NR_MOTION_MODE_NORMAL;
 
-    astVpssChnAttr[VpssChn].u32Width                    = stSize.u32Width;
-    astVpssChnAttr[VpssChn].u32Height                   = stSize.u32Height;
-    astVpssChnAttr[VpssChn].enChnMode                   = VPSS_CHN_MODE_USER;
-    astVpssChnAttr[VpssChn].enCompressMode              = enCompressMode;
-    astVpssChnAttr[VpssChn].enDynamicRange              = enDynamicRange;
-    astVpssChnAttr[VpssChn].enVideoFormat               = enVideoFormat;
-    astVpssChnAttr[VpssChn].enPixelFormat               = enPixFormat;
-    astVpssChnAttr[VpssChn].stFrameRate.s32SrcFrameRate = 30;
-    astVpssChnAttr[VpssChn].stFrameRate.s32DstFrameRate = 30;
-    astVpssChnAttr[VpssChn].u32Depth                    = 0;
-    astVpssChnAttr[VpssChn].bMirror                     = HI_FALSE;
-    astVpssChnAttr[VpssChn].bFlip                       = HI_FALSE;
-    astVpssChnAttr[VpssChn].stAspectRatio.enMode        = ASPECT_RATIO_NONE;
+    for(int i=0;i<2;i++){
+
+        VpssChn = VpssChn + i;
+        astVpssChnAttr[VpssChn].u32Width                    = stSize.u32Width;
+        astVpssChnAttr[VpssChn].u32Height                   = stSize.u32Height;
+        astVpssChnAttr[VpssChn].enChnMode                   = VPSS_CHN_MODE_USER;
+        astVpssChnAttr[VpssChn].enCompressMode              = COMPRESS_MODE_NONE;
+        astVpssChnAttr[VpssChn].enDynamicRange              = enDynamicRange;
+        astVpssChnAttr[VpssChn].enVideoFormat               = enVideoFormat;
+        astVpssChnAttr[VpssChn].enPixelFormat               = enPixFormat;
+        astVpssChnAttr[VpssChn].stFrameRate.s32SrcFrameRate = -1;
+        astVpssChnAttr[VpssChn].stFrameRate.s32DstFrameRate = -1;
+        astVpssChnAttr[VpssChn].u32Depth                    = 1;
+        astVpssChnAttr[VpssChn].bMirror                     = HI_FALSE;
+        astVpssChnAttr[VpssChn].bFlip                       = HI_FALSE;
+        astVpssChnAttr[VpssChn].stAspectRatio.enMode        = ASPECT_RATIO_NONE;
+    }
 
     /*start vpss*/
     abChnEnable[0] = HI_TRUE;
+    abChnEnable[1] = HI_TRUE;
     s32Ret = SAMPLE_COMM_VPSS_Start(VpssGrp, abChnEnable, &stVpssGrpAttr, astVpssChnAttr);
     if (HI_SUCCESS != s32Ret)
     {
@@ -198,15 +211,15 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
         goto EXIT1;
     }
 
-// #if 1
-//     /*vi bind vpss*/
-//     s32Ret = SAMPLE_COMM_VI_Bind_VPSS(ViPipe, ViChn, VpssGrp);
-//     if (HI_SUCCESS != s32Ret)
-//     {
-//         SAMPLE_PRT("vi bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
-//         goto EXIT2;
-//     }
-// #endif
+
+    /*vi bind vpss*/
+    s32Ret = SAMPLE_COMM_VI_Bind_VPSS(ViPipe, ViChn, VpssGrp);
+    if (HI_SUCCESS != s32Ret)
+    {
+        SAMPLE_PRT("vi bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
+        goto EXIT2;
+    }
+
 
     /*config venc */
     stGopAttr.enGopMode  = VENC_GOPMODE_SMARTP;
@@ -225,12 +238,12 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
         goto EXIT2;
     }
 
-    s32Ret = SAMPLE_COMM_VPSS_Bind_VENC(VpssGrp, VpssChn, VencChn[0]);
-    if (HI_SUCCESS != s32Ret)
-    {
-        SAMPLE_PRT("Venc bind Vpss failed. s32Ret: 0x%x !n", s32Ret);
-        goto EXIT3;
-    }
+    // s32Ret = SAMPLE_COMM_VPSS_Bind_VENC(VpssGrp, VpssChn, VencChn[0]);
+    // if (HI_SUCCESS != s32Ret)
+    // {
+    //     SAMPLE_PRT("Venc bind Vpss failed. s32Ret: 0x%x !n", s32Ret);
+    //     goto EXIT3;
+    // }
 
     /*config vo*/
     SAMPLE_COMM_VO_GetDefConfig(&stVoConfig);
@@ -255,13 +268,13 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
     }
 
 
-    /*vpss bind vo*/
-    s32Ret = SAMPLE_COMM_VPSS_Bind_VO(VpssGrp, VpssChn, stVoConfig.VoDev, VoChn);
-    if (HI_SUCCESS != s32Ret)
-    {
-        SAMPLE_PRT("vo bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
-        goto EXIT5;
-    }
+    // /*vpss bind vo*/
+    // s32Ret = SAMPLE_COMM_VPSS_Bind_VO(VpssGrp, VpssChn, stVoConfig.VoDev, VoChn);
+    // if (HI_SUCCESS != s32Ret)
+    // {
+    //     SAMPLE_PRT("vo bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
+    //     goto EXIT5;
+    // }
 
     rtsp_server_init((char*)"live",9999,NULL);
     VENC_SetStreamCallback(VENC_STREAM_CALLBACK_TO_RTSP_SERVER);
@@ -272,7 +285,7 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
         goto EXIT6;
     }
 
-
+    SAMPLE_IVE_Md();
 
     PAUSE();
 
@@ -335,3 +348,4 @@ int main()
     SAMPLE_VIO_MsgExit();
 
 }
+

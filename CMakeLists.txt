@@ -18,6 +18,7 @@ include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
     # ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/
     ./common
+    ./common/svp/common
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
 )
@@ -171,4 +172,4 @@ target_link_libraries(
 
 add_subdirectory(./sample/hifb)
 add_subdirectory(./sample_5)
-
+add_subdirectory(./sample_6)

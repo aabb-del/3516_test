@@ -11,7 +11,7 @@ set(3516_SDK_PATH
 include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
     # ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/common/
-    ./common
+    ./svp/common
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
 )
@@ -28,12 +28,14 @@ link_directories(
 
 
 aux_source_directory(./ 3516_COMMON_SOURCE)
+aux_source_directory(./svp/common 3516_SVP_COMMON_SOURCE)
 
 
 
 add_library(
     common
     ${3516_COMMON_SOURCE}
+    ${3516_SVP_COMMON_SOURCE}
 )
 
 

@@ -60,9 +60,18 @@ export QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0:size=320x240:offset=0x0:nographicsmod
 
 需要先进行下fb的初始化后，测试程序才可以正常运行。
 
-
 ## 测试5
+
+RTSP 推流测试，使用一个开源项目，也用了git子模块的功能。
 
 github的一个项目：
 
 [PHZ76/RtspServer: RTSP Server , RTSP Pusher (github.com)](https://github.com/PHZ76/RtspServer/tree/master)
+
+# 测试6
+
+IVS 使用。当前 IVS 支持的智能应用有：MD（Motion Detection，移动侦测）。
+
+这里把ive的例子拷贝过来用。
+
+简单过程是从VPSS获取图像，调用接口做处理后得到多个检测到移动的区域，使用VGS进行画线。这里也将图像进行了保存，同时使用了DMA加速拷贝。
