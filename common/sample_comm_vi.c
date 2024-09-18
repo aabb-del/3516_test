@@ -735,6 +735,24 @@ combo_dev_attr_t MIPI_2lane_CHN0_SENSOR_GC2053_10BIT_2M_NOWDR_ATTR =
     }
 };
 
+
+combo_dev_attr_t MIPI_2lane_CHN1_SENSOR_GC2053_10BIT_2M_NOWDR_ATTR =
+{
+    .devno = 1,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate = MIPI_DATA_RATE_X1,
+    .img_rect = {0, 0, 1920, 1080},
+
+    {
+        .mipi_attr =
+        {
+            DATA_TYPE_RAW_10BIT,
+            HI_MIPI_WDR_MODE_NONE,
+            {1, 3, -1, -1}
+        }
+    }
+};
+
 combo_dev_attr_t MIPI_4lane_CHN0_SENSOR_OV12870_10BIT_8M_NOWDR_ATTR =
 {
     .devno = 0,
@@ -2452,6 +2470,22 @@ HI_S32 SAMPLE_COMM_VI_GetComboAttrBySns(SAMPLE_SNS_TYPE_E enSnsType, combo_dev_t
     {
         case GC2053_TEST:
             memcpy_s(pstComboAttr, sizeof(combo_dev_attr_t), &MIPI_GC2053_ATTR, sizeof(combo_dev_attr_t));
+            if(MipiDev == 0)
+            {
+
+            }
+            else if(MipiDev == 1)
+            {
+                pstComboAttr->devno = MipiDev;
+                pstComboAttr->mipi_attr.lane_id[0] = 1;
+                pstComboAttr->mipi_attr.lane_id[1] = 3;
+                pstComboAttr->mipi_attr.lane_id[2] = -1;
+                pstComboAttr->mipi_attr.lane_id[3] = -1;
+            }
+            else
+            {
+
+            }
             break;
         case USER_BT1120:
             memcpy_s(pstComboAttr, sizeof(combo_dev_attr_t), &MIPI_BT1120_ATTR, sizeof(combo_dev_attr_t));

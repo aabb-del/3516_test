@@ -38,7 +38,7 @@ void SAMPLE_VIO_HandleSig(HI_S32 signo)
     exit(-1);
 }
 
-void rtsp_server_push_frame_264(char *data,int size,int frame_type);
+
 /**
  * @brief 编码数据处理回调，写到FIFO里面去
  * 
@@ -59,6 +59,7 @@ void VENC_STREAM_CALLBACK_TO_RTSP_SERVER(VENC_CHN VeChn,VENC_STREAM_S* pstStream
         }
     }
 }
+
 
 HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
 {

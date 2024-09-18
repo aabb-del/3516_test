@@ -6,13 +6,11 @@ set(CMAKE_CXX_COMPILER arm-himix200-linux-g++)
 set(CMAKE_CXX_FLAGS "-fpermissive")
 
 include_directories(
-    ../submodule_rtsp_server/
+    ../../submodule_rtsp_server/
 )
 
-
-
 link_directories(
-    ../bin/
+    ../../bin/
 )
 
 

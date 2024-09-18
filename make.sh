@@ -1,6 +1,5 @@
 #!/bin/bash
 cd build
+cmake ..
 make
 
-cd ..
-./copy_to_ftp.sh

@@ -5,7 +5,6 @@ set(CMAKE_CXX_COMPILER arm-himix200-linux-g++)
 
 project(3516_test)
 
-
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
@@ -44,6 +43,16 @@ include_directories(
 link_directories(
     ${FFMPEG_PATH}/lib/
 )
+
+
+# opencv
+
+set(OpenCV_DIR ../env_3516/opencv-4.9.0/lib/cmake/opencv4) # xxxx目录包含OpenCVConfig.cmake
+find_package(OpenCV REQUIRED)	# 找到opencv库
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+
+# target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
 
 
 
@@ -116,8 +125,9 @@ set(SENSOR_LIBA
 
 
 
+
 set(SAMPLE_1_NAME sample_1)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_1 SAMPLE_1_SOURCE)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/samples/sample_1 SAMPLE_1_SOURCE)
 add_executable(
     ${SAMPLE_1_NAME}
     ${3516_COMMON_SOURCE}
@@ -135,7 +145,7 @@ target_link_libraries(
 
 
 set(SAMPLE_2_NAME sample_2_mjpeg_jpeg)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_2 SAMPLE_2_SOURCE)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/samples/sample_2 SAMPLE_2_SOURCE)
 add_executable(
     ${SAMPLE_2_NAME}
     ${3516_COMMON_SOURCE}
@@ -153,7 +163,7 @@ target_link_libraries(
 
 
 set(SAMPLE_3_NAME sample_3_vb)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/sample_3 SAMPLE_3_SOURCE)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/samples/sample_3 SAMPLE_3_SOURCE)
 add_executable(
     ${SAMPLE_3_NAME}
     ${3516_COMMON_SOURCE}
@@ -170,6 +180,9 @@ target_link_libraries(
 )
 
 
-add_subdirectory(./sample/hifb)
-add_subdirectory(./sample_5)
-add_subdirectory(./sample_6)
+add_subdirectory(./samples/sample/hifb)
+add_subdirectory(./samples/sample_5)
+add_subdirectory(./samples/sample_6)
+# add_subdirectory(./samples/sample_7_opencv)
+add_subdirectory(./samples/sample_8_2vi)
+
