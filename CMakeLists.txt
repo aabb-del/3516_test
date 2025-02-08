@@ -20,6 +20,7 @@ include_directories(
     ./common/svp/common
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
+    ./modules/
 )
 
 
@@ -185,4 +186,5 @@ add_subdirectory(./samples/sample_5)
 add_subdirectory(./samples/sample_6)
 # add_subdirectory(./samples/sample_7_opencv)
 add_subdirectory(./samples/sample_8_2vi)
+add_subdirectory(./samples/sample_9_vb)
 
