@@ -13,7 +13,7 @@ project(${FOLDER_NAME})
 
 set(CMAKE_C_COMPILER arm-himix200-linux-gcc)
 set(CMAKE_CXX_COMPILER arm-himix200-linux-g++)
-set(CMAKE_CXX_FLAGS "-fpermissive")
+# set(CMAKE_CXX_FLAGS "-fpermissive")
 
 include_directories(
     ../../submodule_rtsp_server/

@@ -184,7 +184,10 @@ target_link_libraries(
 add_subdirectory(./samples/sample/hifb)
 add_subdirectory(./samples/sample_5)
 add_subdirectory(./samples/sample_6)
-# add_subdirectory(./samples/sample_7_opencv)
+add_subdirectory(./samples/sample_7_opencv)
 add_subdirectory(./samples/sample_8_2vi)
 add_subdirectory(./samples/sample_9_vb)
+add_subdirectory(./samples/sample_robot)
+
+
 

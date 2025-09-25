@@ -317,7 +317,7 @@ HI_S32 SAMPLE_VIO_TEST(HI_U32 u32VoIntfType)
 #if VI_THROUGH_VO
     for(int i=0; i<s32ViCnt; i++)
     {
-         s32Ret = SAMPLE_COMM_VI_Bind_VO(i, 0, stVoConfig.VoDev, i);
+        s32Ret = SAMPLE_COMM_VI_Bind_VO(i, 0, stVoConfig.VoDev, i);
         if (HI_SUCCESS != s32Ret)
         {
             SAMPLE_PRT("vi bind v0 failed. s32Ret: 0x%x !\n", s32Ret);
