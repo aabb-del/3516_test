@@ -200,6 +200,9 @@ int stereo_matcher_test_hi() {
             std::cout << "STOPPING" << std::endl;
         }
 
+
+
+
             
         // 代价地图可视化，彩色图像，显示机器人前方的障碍物分布和安全性评估
         cv::Mat costmap_viz = obstacle_avoidance.visualizeCostMap();
@@ -209,6 +212,48 @@ int stereo_matcher_test_hi() {
             
         debug_logger.logImage(costmap_viz, "costmap", frame_count);
         debug_logger.logImage(disparity_viz, "disparity", frame_count);
+
+
+        // 叠加一些调试信息
+        if (!cmd.stop) {
+            // 安全
+            std::string text = "SAFE";
+            int fontFace = cv::FONT_HERSHEY_COMPLEX;  // 字体类型（有衬线）
+            double fontScale = 1;
+            int thickness = 1;
+            cv::Scalar color(0, 255, 0);      // 绿色(B,G,R)
+
+            // 3. 获取文本尺寸（width, height）
+            int baseline = 0;
+            cv::Size textSize = cv::getTextSize(text, fontFace, fontScale, thickness, &baseline);
+
+            // 4. 计算居中位置（左下角坐标）
+            cv::Point org((costmap_viz.cols - textSize.width) / 2, 
+                        (costmap_viz.rows + textSize.height) / 2);
+
+            // 5. 绘制文本
+            cv::putText(costmap_viz, text, org, fontFace, fontScale, color, thickness);
+        } else {
+            // 不安全
+            std::string text = "DANGER";
+            int fontFace = cv::FONT_HERSHEY_COMPLEX;  // 字体类型（有衬线）
+            double fontScale = 1;
+            int thickness = 1;
+            cv::Scalar color(0, 0, 255);      // 红色
+
+            // 3. 获取文本尺寸（width, height）
+            int baseline = 0;
+            cv::Size textSize = cv::getTextSize(text, fontFace, fontScale, thickness, &baseline);
+
+            // 4. 计算居中位置（左下角坐标）
+            cv::Point org((costmap_viz.cols - textSize.width) / 2, 
+                        (costmap_viz.rows + textSize.height) / 2);
+
+            // 5. 绘制文本
+            cv::putText(costmap_viz, text, org, fontFace, fontScale, color, thickness);
+
+        }
+
         
         // 输出到控制台（可选）
         std::cout << "Frame: " << frame_count << " - " << cmd.debug_info << std::endl;

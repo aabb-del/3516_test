@@ -19,6 +19,19 @@ set(CMAKE_CXX_FLAGS "-fpermissive")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -DNDEBUG")  # 优化大小和速度
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--strip-all")  # 去除调试信息
 
+
+option(ENABLE_NEON "Enable NEON instruction set" ON)
+if(ENABLE_NEON)
+    add_definitions(-DENABLE_NEON=1)
+    # 添加编译标志（后续步骤会详细说明）
+endif()
+# 设置C/C++编译标志
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp -mfpu=neon")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfloat-abi=softfp -mfpu=neon")
+
+
+
+
 include_directories(
     ./chassis
     ../../third_party/c-periphery

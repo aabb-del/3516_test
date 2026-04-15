@@ -14,40 +14,42 @@
 // VI帧的RAII包装
 class VIFrameRAII {
 public:
-    VIFrameRAII(int pipe, int chn) : pipe_(pipe), chn_(chn), frame_(nullptr) {
-        frame_ = new VIDEO_FRAME_INFO_S;
-        memset(frame_, 0, sizeof(VIDEO_FRAME_INFO_S));
-    }
-    
+    VIFrameRAII(int pipe, int chn) 
+        : pipe_(pipe), chn_(chn), frame_(new VIDEO_FRAME_INFO_S{}), acquired_(false) {}
+
     ~VIFrameRAII() {
-        if (frame_) {
+        if (acquired_ && frame_) {
             HI_MPI_VI_ReleaseChnFrame(pipe_, chn_, frame_);
-            delete frame_;
-            // std::cout <<  "frame release" << std::endl;
         }
+        delete frame_;
     }
-    
-    // 禁止拷贝
+
+    // 移动构造函数
+    VIFrameRAII(VIFrameRAII&& other) noexcept
+        : pipe_(other.pipe_), chn_(other.chn_), frame_(other.frame_), acquired_(other.acquired_) {
+        other.frame_ = nullptr;
+        other.acquired_ = false;
+    }
+
+    // 禁用拷贝
     VIFrameRAII(const VIFrameRAII&) = delete;
     VIFrameRAII& operator=(const VIFrameRAII&) = delete;
-    
-    // 允许移动
-    VIFrameRAII(VIFrameRAII&& other) noexcept : pipe_(other.pipe_), chn_(other.chn_), frame_(other.frame_) {
-        other.frame_ = nullptr;
+
+    bool acquire(int timeout_ms = 1000) {
+        if (!frame_) return false;
+        HI_S32 ret = HI_MPI_VI_GetChnFrame(pipe_, chn_, frame_, timeout_ms);
+        acquired_ = (ret == HI_SUCCESS);
+        return acquired_;
     }
-    
+
     VIDEO_FRAME_INFO_S* get() { return frame_; }
     VIDEO_FRAME_INFO_S* operator->() { return frame_; }
-    
-    bool acquire(int timeout_ms = 1000) {
-        HI_S32 s32_ret = HI_MPI_VI_GetChnFrame(pipe_, chn_, frame_, timeout_ms);
-        return s32_ret == HI_SUCCESS;
-    }
-    
+
 private:
     int pipe_;
     int chn_;
     VIDEO_FRAME_INFO_S* frame_;
+    bool acquired_;  // 新增标志
 };
 
 
