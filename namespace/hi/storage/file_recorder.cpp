@@ -9,28 +9,20 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
-
-#include <fcntl.h>           /* Definition of AT_* constants */
 #include <unistd.h>
-#include <errno.h>
-#include <cstring>
-#include <libgen.h>  // 可选，也可用字符串操作
 
 namespace hisi {
 namespace storage {
 
 static bool mkdirRecursive(const std::string& path, mode_t mode) {
     if (path.empty()) return false;
-    // 如果已存在，直接成功
     if (access(path.c_str(), F_OK) == 0) return true;
-    
-    // 递归创建父目录
+
     size_t pos = path.find_last_of('/');
     if (pos != std::string::npos && pos != 0) {
         std::string parent = path.substr(0, pos);
         if (!mkdirRecursive(parent, mode)) return false;
     }
-    // 创建当前目录
     if (mkdir(path.c_str(), mode) != 0 && errno != EEXIST) {
         std::cerr << "mkdir failed: " << path << " - " << strerror(errno) << std::endl;
         return false;
@@ -38,8 +30,6 @@ static bool mkdirRecursive(const std::string& path, mode_t mode) {
     return true;
 }
 
-
-// 写入时自动添加起始码（如果缺失）
 static bool writeNaluWithStartCode(std::ofstream& os, const uint8_t* data, size_t len) {
     if (!os.good()) return false;
     bool hasStartCode = false;
@@ -56,6 +46,26 @@ static bool writeNaluWithStartCode(std::ofstream& os, const uint8_t* data, size_
     return os.good();
 }
 
+// 将Unix时间戳转换为本地时间字符串 YYYYMMDD_HHMMSS
+std::string FileRecorder::timestampToLocalString(int64_t ts) {
+    time_t t = static_cast<time_t>(ts);
+    struct tm tm;
+    localtime_r(&t, &tm);   // 受TZ环境变量影响，这里会得到东八区时间
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    return oss.str();
+}
+
+// 将本地时间字符串解析为Unix时间戳（受TZ环境变量影响）
+int64_t FileRecorder::localStringToTimestamp(const std::string& str) {
+    struct tm tm = {};
+    std::istringstream ss(str);
+    ss >> std::get_time(&tm, "%Y%m%d_%H%M%S");
+    if (ss.fail()) return 0;
+    // mktime 会根据本地时区转换
+    return static_cast<int64_t>(mktime(&tm));
+}
+
 FileRecorder::FileRecorder(const std::string& outputDir,
                            const std::string& baseName,
                            int durationSec,
@@ -68,10 +78,17 @@ FileRecorder::FileRecorder(const std::string& outputDir,
       minFreeSpaceMB_(minFreeSpaceMB),
       maxFileCount_(maxFileCount),
       timeReliableCb_(timeReliableCb),
-      fileStartRealTime_(0) {
+      failed_(false),
+      frameCounter_(0) {
+    // 规范化输出目录：去除末尾的 '/'
+    if (!outputDir_.empty() && outputDir_.back() == '/') {
+        const_cast<std::string&>(outputDir_).pop_back();
+    }
     ensureDir();
-    // 尝试打开第一个文件
-    rotateFile();
+    if (!rotateFile()) {
+        std::cerr << "FileRecorder: failed to create initial file" << std::endl;
+        failed_ = true;
+    }
 }
 
 FileRecorder::~FileRecorder() {
@@ -81,15 +98,16 @@ FileRecorder::~FileRecorder() {
 }
 
 bool FileRecorder::writeFrame(const uint8_t* data, size_t len, bool /*isKeyFrame*/) {
-    if (data == nullptr || len == 0) return false;
+    if (failed_ || data == nullptr || len == 0) return false;
     std::lock_guard<std::mutex> lock(mutex_);
 
-    // 检查是否需要切换文件（基于单调时钟的时长）
+    // 检查时长，是否需要切换文件
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - fileStartTime_).count();
     if (elapsed >= durationSec_) {
         if (!rotateFile()) {
-            std::cerr << "Failed to rotate file, recording may stop." << std::endl;
+            std::cerr << "FileRecorder: rotateFile failed, stop recording" << std::endl;
+            failed_ = true;
             return false;
         }
     }
@@ -97,14 +115,16 @@ bool FileRecorder::writeFrame(const uint8_t* data, size_t len, bool /*isKeyFrame
     if (!fileStream_.is_open()) return false;
 
     if (!writeNaluWithStartCode(fileStream_, data, len)) {
-        std::cerr << "Failed to write data to file" << std::endl;
+        std::cerr << "FileRecorder: write data failed" << std::endl;
         return false;
     }
     fileStream_.flush();
 
-    // 每写入一帧后检查一次磁盘空间（开销较小，也可以每N帧检查一次）
-    enforceFreeSpace();
-
+    // 每写入10帧检查一次磁盘空间（避免频繁stat）
+    if (++frameCounter_ >= 10) {
+        frameCounter_ = 0;
+        enforceFreeSpace();
+    }
     return true;
 }
 
@@ -112,7 +132,7 @@ bool FileRecorder::rotateFile() {
     // 关闭当前文件
     if (fileStream_.is_open()) {
         fileStream_.close();
-        // 关闭后清理旧文件（基于空间/数量）
+        // 关闭后清理旧文件
         enforceFreeSpace();
     }
 
@@ -120,63 +140,48 @@ bool FileRecorder::rotateFile() {
     currentFilePath_ = generateFilePath();
     fileStream_.open(currentFilePath_, std::ios::binary | std::ios::trunc);
     if (!fileStream_.is_open()) {
-        std::cerr << "Failed to open file: " << currentFilePath_ << std::endl;
+        std::cerr << "FileRecorder: failed to open file " << currentFilePath_
+                  << ", error: " << strerror(errno) << std::endl;
         return false;
     }
 
-    // 重置计时起点
+    // 重置计时起点（单调时钟）
     fileStartTime_ = std::chrono::steady_clock::now();
-    // 记录实际时间（用于生成下一次文件名，但此处已生成）
-    fileStartRealTime_ = std::time(nullptr);
-    std::cout << "Recording to new file: " << currentFilePath_ << std::endl;
+    std::cout << "FileRecorder: recording to " << currentFilePath_ << std::endl;
     return true;
 }
 
 std::string FileRecorder::generateFilePath() {
-    // 判断系统时间是否可靠
     bool timeReliable = true;
     if (timeReliableCb_) {
         timeReliable = timeReliableCb_();
     } else {
-        // 默认检查当前时间是否大于一个合理的基准（如2020年1月1日）
+        // 默认检查时间是否大于2020-01-01 00:00:00 UTC
         std::time_t now = std::time(nullptr);
-        if (now < 1577836800) { // 2020-01-01 00:00:00 UTC
-            timeReliable = false;
-        }
+        if (now < 1577836800) timeReliable = false;
     }
 
-    std::string timestampStr;
+    int64_t timestamp = 0;
     if (timeReliable) {
-        // 使用当前系统时间
-        std::time_t now = std::time(nullptr);
-        std::tm* tm = std::localtime(&now);
-        std::ostringstream oss;
-        oss << std::put_time(tm, "%Y%m%d_%H%M%S");
-        timestampStr = oss.str();
+        // 使用当前系统时间（UTC时间戳，但后续会转为本地时间字符串）
+        timestamp = static_cast<int64_t>(std::time(nullptr));
     } else {
-        // 时间不可靠：从已有文件名中获取最大时间戳，加上 durationSec 作为新时间戳
+        // 从已有文件中获取最大时间戳，加上 durationSec
         auto files = getSortedFiles();
-        int64_t maxTimestamp = 0;
+        int64_t maxTs = 0;
         for (const auto& f : files) {
             int64_t ts = parseTimestampFromFilename(f);
-            if (ts > maxTimestamp) maxTimestamp = ts;
+            if (ts > maxTs) maxTs = ts;
         }
-        if (maxTimestamp == 0) {
-            // 没有任何文件，使用一个基准时间（如0）
-            timestampStr = "19700101_000000";
+        if (maxTs == 0) {
+            // 无有效文件，使用一个基准时间（2020-01-01 00:00:00 本地时间）
+            timestamp = 1577836800; // UTC 2020-01-01 00:00:00，转为本地时间字符串会加上时区偏移
         } else {
-            // 新文件的时间戳 = 最大时间戳 + durationSec
-            maxTimestamp += durationSec_;
-            std::time_t t = static_cast<std::time_t>(maxTimestamp);
-            std::tm* tm = std::gmtime(&t);
-            std::ostringstream oss;
-            oss << std::put_time(tm, "%Y%m%d_%H%M%S");
-            timestampStr = oss.str();
+            timestamp = maxTs + durationSec_;
         }
     }
-
-    // 构造完整路径
-    return outputDir_ + "/" + baseName_ + "_" + timestampStr + ".h264";
+    std::string timeStr = timestampToLocalString(timestamp);
+    return outputDir_ + "/" + baseName_ + "_" + timeStr + ".h264";
 }
 
 std::vector<std::string> FileRecorder::getSortedFiles() const {
@@ -186,70 +191,64 @@ std::vector<std::string> FileRecorder::getSortedFiles() const {
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         std::string name = entry->d_name;
-        // 匹配格式：baseName_YYYYMMDD_HHMMSS.h264
-        if (name.find(baseName_ + "_") == 0 && name.find(".h264") == name.size() - 5) {
+        // 匹配 baseName_YYYYMMDD_HHMMSS.h264
+        if (name.find(baseName_ + "_") == 0 && name.size() > baseName_.size() + 16 &&
+            name.substr(name.size() - 5) == ".h264") {
             files.push_back(outputDir_ + "/" + name);
         }
     }
     closedir(dir);
-    // 按文件名中的时间戳排序（从旧到新）
+    // 按文件名中的时间戳排序（升序，旧→新）
     std::sort(files.begin(), files.end(),
               [this](const std::string& a, const std::string& b) {
-                  int64_t ta = parseTimestampFromFilename(a);
-                  int64_t tb = parseTimestampFromFilename(b);
-                  return ta < tb;
+                  return parseTimestampFromFilename(a) < parseTimestampFromFilename(b);
               });
     return files;
 }
 
 int64_t FileRecorder::parseTimestampFromFilename(const std::string& fullpath) const {
-    // 提取文件名部分
+    // 提取文件名
     size_t slash = fullpath.find_last_of('/');
     std::string fname = (slash == std::string::npos) ? fullpath : fullpath.substr(slash + 1);
     // 格式：baseName_YYYYMMDD_HHMMSS.h264
     if (fname.length() < baseName_.size() + 16) return 0;
     std::string timePart = fname.substr(baseName_.size() + 1, 15); // YYYYMMDD_HHMMSS
     if (timePart.size() != 15) return 0;
-    std::tm tm = {};
-    std::istringstream ss(timePart);
-    ss >> std::get_time(&tm, "%Y%m%d_%H%M%S");
-    if (ss.fail()) return 0;
-    std::time_t t = std::mktime(&tm);
-    return static_cast<int64_t>(t);
+    return localStringToTimestamp(timePart);
 }
 
 void FileRecorder::enforceFreeSpace() {
-    // 1. 检查剩余空间
-    int freeMB = getFreeSpaceMB(outputDir_);
-    if (freeMB >= minFreeSpaceMB_ && (maxFileCount_ == 0 || getSortedFiles().size() <= maxFileCount_)) {
-        return; // 空间足够且数量未超限
-    }
-
-    // 2. 需要删除旧文件
+    // 获取当前文件列表（已排序）
     auto files = getSortedFiles();
     if (files.empty()) return;
 
-    // 如果因数量超限需要删除，则删除最旧的文件直到数量 ≤ maxFileCount_
+    // 1. 检查剩余空间
+    int freeMB = getFreeSpaceMB(outputDir_);
+    bool spaceOk = (freeMB >= minFreeSpaceMB_);
+    bool countOk = (maxFileCount_ == 0 || files.size() <= maxFileCount_);
+    if (spaceOk && countOk) return;
+
+    // 2. 优先删除最旧文件直到满足数量限制
     while (maxFileCount_ > 0 && files.size() > maxFileCount_) {
         const std::string& oldest = files.front();
         if (remove(oldest.c_str()) == 0) {
-            std::cout << "Deleted old file (exceed max count): " << oldest << std::endl;
+            std::cout << "FileRecorder: deleted (exceed max count) " << oldest << std::endl;
             files.erase(files.begin());
         } else {
-            std::cerr << "Failed to delete file: " << oldest << std::endl;
+            std::cerr << "FileRecorder: failed to delete " << oldest << " - " << strerror(errno) << std::endl;
             break;
         }
     }
 
-    // 3. 因空间不足需要删除
+    // 3. 若空间仍不足，继续删除最旧文件
     while (freeMB < minFreeSpaceMB_ && !files.empty()) {
         const std::string& oldest = files.front();
         if (remove(oldest.c_str()) == 0) {
-            std::cout << "Deleted old file (low disk space): " << oldest << std::endl;
+            std::cout << "FileRecorder: deleted (low space) " << oldest << std::endl;
             files.erase(files.begin());
-            freeMB = getFreeSpaceMB(outputDir_); // 重新获取剩余空间
+            freeMB = getFreeSpaceMB(outputDir_);
         } else {
-            std::cerr << "Failed to delete file: " << oldest << std::endl;
+            std::cerr << "FileRecorder: failed to delete " << oldest << " - " << strerror(errno) << std::endl;
             break;
         }
     }
@@ -258,16 +257,16 @@ void FileRecorder::enforceFreeSpace() {
 int FileRecorder::getFreeSpaceMB(const std::string& path) const {
     struct statvfs stat;
     if (statvfs(path.c_str(), &stat) != 0) {
+        std::cerr << "FileRecorder: statvfs failed on " << path << " - " << strerror(errno) << std::endl;
         return 0;
     }
-    // 可用块数 * 块大小 = 可用字节，转换为 MB
-    uint64_t freeBytes = stat.f_bavail * stat.f_frsize;
+    uint64_t freeBytes = static_cast<uint64_t>(stat.f_bavail) * stat.f_frsize;
     return static_cast<int>(freeBytes / (1024 * 1024));
 }
 
 void FileRecorder::ensureDir() const {
     if (!mkdirRecursive(outputDir_, 0755)) {
-        std::cerr << "Failed to create directory: " << outputDir_ << std::endl;
+        std::cerr << "FileRecorder: ensureDir failed for " << outputDir_ << std::endl;
     }
 }
 

@@ -72,8 +72,8 @@ int main() {
 
     // 创建 NTP 周期同步实例并启动（每小时同步一次）
     auto ntpSync = std::make_shared<ntp::NtpSync>();
-    ntpSync->startPeriodicSync(3600);  // 每小时同步一次
-    ntpSync->syncNow();                // 立即同步一次
+    ntpSync->startPeriodicSync(3600, 3000, 2);
+
 
 
     // 初始化 MPP
