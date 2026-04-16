@@ -9,7 +9,8 @@
 #include "rtsp_publisher.h"
 #include "sample_comm.h"
 #include "mpp.hpp"
-#include "ntp_time_sync.h"
+#include "ntp_time_sync.h"      // 增强版
+#include "file_recorder.h"      // 新模块
 
 static std::atomic<bool> g_running(true);
 
@@ -17,33 +18,26 @@ void signalHandler(int) {
     g_running = false;
 }
 
-
 void viToVencThread(int pipeId, int viChn, std::shared_ptr<hisi::venc::VENCChannelGuard> vencGuard) {
     hisi::vi::VIFrameGuard viFrame(pipeId, viChn);
     int vencChn = vencGuard->getChn();
-
     while (g_running) {
-        // 获取 VI 帧
-        if (!viFrame.acquire(1000)) {
-            continue;
-        }
-        // 送入编码器
+        if (!viFrame.acquire(1000)) continue;
         HI_S32 ret = HI_MPI_VENC_SendFrame(vencChn, viFrame.get(), 1000);
         if (ret != HI_SUCCESS) {
             std::cerr << "SendFrame to VENC chn " << vencChn << " failed, ret=0x" 
                       << std::hex << ret << std::endl;
         }
-        // VI 帧会在下一次 acquire 时自动释放
     }
 }
 
-
-
-void vencToRtspThread(std::shared_ptr<hisi::venc::VENCChannelGuard> vencGuard,
-                      int rtspPort, const std::string& rtspSuffix) {
+void vencToRtspAndFileThread(std::shared_ptr<hisi::venc::VENCChannelGuard> vencGuard,
+                             int rtspPort, const std::string& rtspSuffix,
+                             std::shared_ptr<hisi::storage::FileRecorder> recorder,
+                             std::shared_ptr<ntp::NtpSync> ntpSync) {
     int vencChn = vencGuard->getChn();
 
-    // 启动 RTSP 服务器
+    // RTSP 服务器
     hisi::rtsp::RTSPConfig rtspCfg;
     rtspCfg.ip = "0.0.0.0";
     rtspCfg.port = rtspPort;
@@ -54,68 +48,64 @@ void vencToRtspThread(std::shared_ptr<hisi::venc::VENCChannelGuard> vencGuard,
         return;
     }
 
-
-
     while (g_running) {
-        // 获取一帧编码流
         hisi::venc::VENCStreamRAII stream;
-        if (stream.acquire(vencChn, 2000)) {   // 超时2秒
-            bool isKeyFrame = stream.isKeyFrame();   // 根据 stH264Info.enRefType 判断 IDR 帧
+        if (stream.acquire(vencChn, 2000)) {
+            bool isKeyFrame = stream.isKeyFrame();
             for (uint32_t i = 0; i < stream.getPackCount(); ++i) {
                 const uint8_t* data = stream.getPackData(i);
                 size_t len = stream.getPackLen(i);
                 if (data && len > 0) {
                     rtsp.pushH264Frame(data, len, isKeyFrame);
+                    if (recorder) {
+                        recorder->writeFrame(data, len, isKeyFrame);
+                    }
                 }
             }
-        } else {
-            // 超时或错误，继续循环
         }
     }
 }
-
-
-
 
 int main() {
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
-    // 时间同步
-    if (ntp::syncSystemTime("pool.ntp.org", 3000, 2)) {
-        std::cout << "Time sync success." << std::endl;
-    } else {
-        std::cerr << "Time sync failed." << std::endl;
-    }
+    // 创建 NTP 周期同步实例并启动（每小时同步一次）
+    auto ntpSync = std::make_shared<ntp::NtpSync>();
+    ntpSync->startPeriodicSync(3600);  // 每小时同步一次
+    ntpSync->syncNow();                // 立即同步一次
 
 
-    // 初始化海思 MPP 系统、VI 等（省略）
+    // 初始化 MPP
     Mpp mpp;
     mpp.vi_init();
-    // mpp.vo_init();
 
-    // 定义通道配置
+    // 通道配置
     struct ChannelConfig {
         int pipeId;
         int viChn;
         int vencChn;
         int rtspPort;
         std::string suffix;
+        std::string recordDir;
+        int durationSec;       // 每个文件录制时长（秒）
+        int minFreeSpaceMB;    // 最小剩余空间（MB）
+        size_t maxFileCount;   // 最大文件数量（0=不限制）
     };
 
     std::vector<ChannelConfig> channels = {
-        {0, 0, 0, 554, "cam0"},
-        {1, 0, 1, 555, "cam1"}
+        {0, 0, 0, 554, "cam0", "/mnt/TF/record/cam0", 600*6, 1024, 0},   // 1小时一个文件，至少剩余1GB，不限制最多文件
+        {1, 0, 1, 555, "cam1", "/mnt/TF/record/cam1", 600*6, 1024, 0}
     };
 
     std::vector<std::thread> threads;
 
     for (const auto& cfg : channels) {
-        // 创建 VENC 通道（使用 RAII 管理生命周期）
+        // VENC 配置
         hisi::venc::VENCConfig vencCfg;
         vencCfg.enType = PT_H264;
-        vencCfg.enSize = PIC_1080P;   // 请根据实际 VI 输出尺寸设置
-        vencCfg.u32BitRate = 2048;
+        vencCfg.enSize = PIC_1080P;
+        vencCfg.u32BitRate = 8192;
         vencCfg.u32SrcFrameRate = 30;
         vencCfg.u32DstFrameRate = 30;
 
@@ -125,23 +115,20 @@ int main() {
             continue;
         }
 
-        // 启动生产者线程（VI → VENC）
+        // 创建文件录制器，传入时间可靠性回调（使用 NTP 同步状态）
+        // 创建文件录制器时，传入时间可靠性回调
+        auto recorder = std::make_shared<hisi::storage::FileRecorder>(
+            cfg.recordDir, cfg.suffix, cfg.durationSec, cfg.minFreeSpaceMB, cfg.maxFileCount,
+            [ntpSync]() { return ntpSync->isTimeReliable(); }
+        );
+
         threads.emplace_back(viToVencThread, cfg.pipeId, cfg.viChn, vencGuard);
-        // 启动消费者线程（VENC → RTSP）
-        threads.emplace_back(vencToRtspThread, vencGuard, cfg.rtspPort, cfg.suffix);
+        threads.emplace_back(vencToRtspAndFileThread, vencGuard, cfg.rtspPort, cfg.suffix, recorder, ntpSync);
     }
 
-    // 等待所有线程结束
     for (auto& t : threads) {
         if (t.joinable()) t.join();
     }
 
     return 0;
 }
-
-
-
-
-
-
-
