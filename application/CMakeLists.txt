@@ -13,12 +13,17 @@ set(3516_SDK_PATH
     ~/work/3516/Hi3516CV500R001C02SPC020/01.software/board/Hi3516CV500_SDK_V2.0.2.0/
 )
 
+set(PQ_EXT_API_PATH
+    ${3516_SDK_PATH}/Hi3516CV500_ext_api_V2.0.2.0
+)
+
 include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
     ../common
     ../common/svp/common
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/adp/
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
+    ${PQ_EXT_API_PATH}/libbin/include   # PQ API 需要拷贝到SDK里或者工程里
     ../modules/
 )
 
@@ -44,12 +49,14 @@ include_directories(
     ../namespace/hi/venc/
     ../namespace/hi/vi/
     ../namespace/hi/storage/
+    ../namespace/hi/pq/
 )
 
 aux_source_directory(../namespace/hi/rtsp/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/venc/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/vi/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/storage/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/pq/ 3516_COMMON_SOURCE)
 
 
 
@@ -105,8 +112,15 @@ set(SENSOR_LIBA
 )
 
 
+set(PQ_LIBA
+    libbin.a
+    lib_pqcontrol.a
+)
+
 link_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/lib/
+    ${PQ_EXT_API_PATH}/libbin/release
+    ${PQ_EXT_API_PATH}/libcontrol/release
 )
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/ai_camera AI_CAMERA)
@@ -123,4 +137,5 @@ target_link_libraries(
     ${AUDIO_LIBA}
     ${SENSOR_LIBA}
     ${FFMPEG_LIBA}
+    ${PQ_LIBA}
 )

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <unistd.h>
 #include "vi_frame_guard.h"
 #include "venc_stream_guard.h"
 #include "rtsp_publisher.h"
@@ -11,10 +12,13 @@
 #include "mpp.hpp"
 #include "ntp_time_sync.h"      // 增强版
 #include "file_recorder.h"      // 新模块
+#include "pq.hpp"
 
 static std::atomic<bool> g_running(true);
 
 void signalHandler(int) {
+    // 退出时停止控制服务
+    hisi::pq::PQ::stopControlProcess();  // 停止 pq_control_main 线程
     g_running = false;
 }
 
@@ -66,12 +70,20 @@ void vencToRtspAndFileThread(std::shared_ptr<hisi::venc::VENCChannelGuard> vencG
     }
 }
 
-int main() {
+
+
+
+int main(int argc, char **argv) {
+
+    
+
+
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
     // 创建 NTP 周期同步实例并启动（每小时同步一次）
     auto ntpSync = std::make_shared<ntp::NtpSync>();
+    ntpSync->syncNow();
     ntpSync->startPeriodicSync(3600, 3000, 2);
 
 
@@ -79,6 +91,8 @@ int main() {
     // 初始化 MPP
     Mpp mpp;
     mpp.vi_init();
+
+
 
     // 通道配置
     struct ChannelConfig {
@@ -126,9 +140,22 @@ int main() {
         threads.emplace_back(vencToRtspAndFileThread, vencGuard, cfg.rtspPort, cfg.suffix, recorder, ntpSync);
     }
 
+    // 延时 1 秒
+    usleep(1000000);
+
+    hisi::pq::PQ pq;
+    if (pq.loadFromFile("./binary_data_Hi3516CV500.bin")) {
+        std::cout << "PQ parameters loaded." << std::endl;
+    }
+
+    hisi::pq::PQ::startControlProcess(argc, argv);
+
     for (auto& t : threads) {
         if (t.joinable()) t.join();
     }
+
+
+    hisi::pq::PQ::stopControlProcess();  // 停止 pq_control_main 线程
 
     return 0;
 }
