@@ -12,6 +12,7 @@
 #include "mpp.hpp"
 #include "ntp_time_sync.h"      // 增强版
 #include "file_recorder.h"      // 新模块
+#include "overlay_region_manager.h"
 #include "pq.hpp"
 
 static std::atomic<bool> g_running(true);
@@ -113,6 +114,11 @@ int main(int argc, char **argv) {
     };
 
     std::vector<std::thread> threads;
+    std::vector<hisi::region::RegionId> osdIds;   // 存储创建的OSD ID，便于后续管理
+
+    // 获取管理器单例
+    auto& mgr = hisi::region::OverlayRegionManager::getInstance();
+
 
     for (const auto& cfg : channels) {
         // VENC 配置
@@ -122,6 +128,7 @@ int main(int argc, char **argv) {
         vencCfg.u32BitRate = 8192;
         vencCfg.u32SrcFrameRate = 30;
         vencCfg.u32DstFrameRate = 30;
+
 
         auto vencGuard = std::make_shared<hisi::venc::VENCChannelGuard>(cfg.vencChn, vencCfg);
         if (!vencGuard->isValid()) {
@@ -135,6 +142,40 @@ int main(int argc, char **argv) {
             cfg.recordDir, cfg.suffix, cfg.durationSec, cfg.minFreeSpaceMB, cfg.maxFileCount,
             [ntpSync]() { return ntpSync->isTimeReliable(); }
         );
+
+
+        // 构建VENC通道的MPP_CHN_S结构
+        MPP_CHN_S vencChn;
+        vencChn.enModId = HI_ID_VENC;
+        vencChn.s32DevId = 0;
+        vencChn.s32ChnId = cfg.vencChn;    // 通道号
+
+        // 设置OSD显示属性（位置：右下角，假设1080P，logo尺寸320x240）
+        hisi::region::RegionDisplayAttr osdAttr;
+        osdAttr.x = 10;   // 屏幕宽度 - logo宽度
+        osdAttr.y = 10;   // 屏幕高度 - logo高度
+        osdAttr.layer = 1;        // 图层号
+        osdAttr.fgAlpha = 128;    // 完全不透明
+        osdAttr.bgAlpha = 0;      // 背景完全透明
+
+        // 创建OVERLAY区域（自动从BMP读取尺寸）
+        hisi::region::RegionId osdId = mgr.createOverlay(
+            vencChn,                           // 目标通道
+            hisi::region::RegionType::OVERLAY, // 普通OVERLAY
+            "./res/logo.bmp",                  // BMP文件路径（需存在）
+            PIXEL_FORMAT_ARGB_1555,            // 像素格式
+            osdAttr,
+            0x00000000                         // 背景色（透明）
+        );
+
+        if (osdId != 0) {
+            std::cout << "OSD created for VENC channel " << cfg.vencChn << ", ID=" << osdId << std::endl;
+            osdIds.push_back(osdId);
+        } else {
+            std::cerr << "Failed to create OSD for channel " << cfg.vencChn << std::endl;
+        }
+
+
 
         threads.emplace_back(viToVencThread, cfg.pipeId, cfg.viChn, vencGuard);
         threads.emplace_back(vencToRtspAndFileThread, vencGuard, cfg.rtspPort, cfg.suffix, recorder, ntpSync);

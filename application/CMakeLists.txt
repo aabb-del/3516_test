@@ -50,6 +50,7 @@ include_directories(
     ../namespace/hi/vi/
     ../namespace/hi/storage/
     ../namespace/hi/pq/
+    ../namespace/hi/region/
 )
 
 aux_source_directory(../namespace/hi/rtsp/ 3516_COMMON_SOURCE)
@@ -57,6 +58,7 @@ aux_source_directory(../namespace/hi/venc/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/vi/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/storage/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/pq/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/region/ 3516_COMMON_SOURCE)
 
 
 
