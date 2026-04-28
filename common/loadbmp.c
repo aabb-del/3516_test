@@ -41,9 +41,9 @@ HI_S32 GetBmpInfo(const char* filename,     OSD_BITMAPFILEHEADER*  pBmpFileHeade
 
     HI_U16    bfType;
 
-    if (NULL == filename)
+    if (NULL == filename || filename == "")
     {
-        printf("OSD_LoadBMP: filename=NULL\n");
+        printf("OSD_LoadBMP: filename=NULL or \"\"\n");
         return -1;
     }
 

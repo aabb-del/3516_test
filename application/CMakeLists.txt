@@ -9,13 +9,15 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 
-set(3516_SDK_PATH
-    ~/work/3516/Hi3516CV500R001C02SPC020/01.software/board/Hi3516CV500_SDK_V2.0.2.0/
-)
+set(3516_SDK_PATH ~/work/3516/Hi3516CV500R001C02SPC020/01.software/board/Hi3516CV500_SDK_V2.0.2.0/)
+set(PQ_EXT_API_PATH ${3516_SDK_PATH}/Hi3516CV500_ext_api_V2.0.2.0)
 
-set(PQ_EXT_API_PATH
-    ${3516_SDK_PATH}/Hi3516CV500_ext_api_V2.0.2.0
-)
+set(SDLTTF_PATH /mnt/d/data/git/3516/env_3516/SDL_ttf-2.0.11/_install/)
+set(FREETYPE_PATH /mnt/d/data/git/3516/env_3516/freetype-2.4.10/_install/)
+set(SDL_PATH /mnt/d/data/git/3516/env_3516/SDL-1.2.15/_install/)
+
+
+
 
 include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/include/
@@ -25,6 +27,11 @@ include_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/sample/audio/mp3dec/include/
     ${PQ_EXT_API_PATH}/libbin/include   # PQ API 需要拷贝到SDK里或者工程里
     ../modules/
+    ${FREETYPE_PATH}/include
+    ${SDL_PATH}/include
+    ${SDL_PATH}/include/SDL
+    ${SDLTTF_PATH}/include
+
 )
 
 
@@ -51,6 +58,7 @@ include_directories(
     ../namespace/hi/storage/
     ../namespace/hi/pq/
     ../namespace/hi/region/
+    ../namespace/hi/osd/
 )
 
 aux_source_directory(../namespace/hi/rtsp/ 3516_COMMON_SOURCE)
@@ -59,6 +67,7 @@ aux_source_directory(../namespace/hi/vi/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/storage/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/pq/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/region/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/osd/ 3516_COMMON_SOURCE)
 
 
 
@@ -119,10 +128,19 @@ set(PQ_LIBA
     lib_pqcontrol.a
 )
 
+set(SDL_LIBA
+    libfreetype.a
+    libSDL.a
+    libSDL_ttf.a
+)
+
 link_directories(
     ${3516_SDK_PATH}/smp/a7_linux/mpp/lib/
     ${PQ_EXT_API_PATH}/libbin/release
     ${PQ_EXT_API_PATH}/libcontrol/release
+    ${FREETYPE_PATH}/lib
+    ${SDL_PATH}/lib
+    ${SDLTTF_PATH}/lib
 )
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/ai_camera AI_CAMERA)
@@ -140,4 +158,5 @@ target_link_libraries(
     ${SENSOR_LIBA}
     ${FFMPEG_LIBA}
     ${PQ_LIBA}
+    ${SDL_LIBA}
 )

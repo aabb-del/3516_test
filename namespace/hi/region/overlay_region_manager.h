@@ -87,14 +87,29 @@ public:
     RegionId createMosaic(const MPP_CHN_S& chn,
                           const MosaicAttr& mosaicAttr,
                           const RegionDisplayAttr& attr = RegionDisplayAttr());
-
+    
+    // ---------- 画布直接更新（适用于动态内容，如时间戳）----------
+    // 参数：
+    //   id         : 区域ID
+    //   drawCallback: 回调函数，用户在此回调中直接向画布内存绘制内容
+    //                 canvasAddr: 画布虚拟地址（用户可直接写）
+    //                 stride    : 画布行跨度（字节）
+    //                 width     : 画布宽度（像素）
+    //                 height    : 画布高度（像素）
+    // 返回：成功 true，失败 false
+    bool updateOverlayCanvas(RegionId id, std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback);
+    bool updateOverlayBitMap(RegionId id, std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback);
     // ---------- 通用操作 ----------
+    bool setOverlayBitmapByData(RegionId id, 
+                            const std::vector<HI_U8>& bitmapData,
+                            PIXEL_FORMAT_E pixelFormat);
     bool updateOverlayBitmap(RegionId id, const std::string& bmpFilePath);
     bool setPosition(RegionId id, HI_S32 x, HI_S32 y);
     bool setAlpha(RegionId id, HI_U32 fgAlpha, HI_U32 bgAlpha = 0);
     bool destroyRegion(RegionId id);
     void destroyRegionsOnChn(const MPP_CHN_S& chn);
     bool isValid(RegionId id) const;
+    bool cleanCanvas(RegionId id);
 
 private:
     OverlayRegionManager() = default;

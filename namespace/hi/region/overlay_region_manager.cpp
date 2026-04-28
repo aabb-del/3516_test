@@ -7,6 +7,12 @@
 namespace hisi {
 namespace region {
 
+
+static void _cleanCanvas(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)
+{
+    memset(canvasAddr, 0x0, stride*height);
+}
+
 // ==================== 静态辅助函数 ====================
 bool OverlayRegionManager::getBmpSize(const std::string& filePath, HI_U32& width, HI_U32& height) {
     OSD_BITMAPFILEHEADER bmpFileHeader;
@@ -290,6 +296,7 @@ RegionId OverlayRegionManager::createOverlay(const MPP_CHN_S& chn,
     }
     if (!loadBmpToRegion(handle, info, bmpFilePath)) {
         std::cerr << "Warning: loadBmpToRegion failed for " << bmpFilePath << std::endl;
+        cleanCanvas(handle);
     }
 
     info.attached = true;
@@ -356,6 +363,30 @@ RegionId OverlayRegionManager::createMosaic(const MPP_CHN_S& chn,
 }
 
 // ==================== 公共操作 ====================
+bool OverlayRegionManager::setOverlayBitmapByData(RegionId id,
+                                                  const std::vector<HI_U8>& bitmapData,
+                                                  PIXEL_FORMAT_E pixelFormat) {
+    auto it = regions_.find(id);
+    if (it == regions_.end()) return false;
+    const auto& info = it->second;
+    if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX)
+        return false;
+
+    BITMAP_S stBitmap;
+    memset(&stBitmap, 0, sizeof(stBitmap));
+    stBitmap.u32Width       = info.width;
+    stBitmap.u32Height      = info.height;
+    stBitmap.enPixelFormat  = pixelFormat;
+    stBitmap.pData          = const_cast<HI_U8*>(bitmapData.data());
+
+    HI_S32 ret = HI_MPI_RGN_SetBitMap(info.handle, &stBitmap);
+    if (ret != HI_SUCCESS) {
+        std::cerr << "HI_MPI_RGN_SetBitMap failed, ret=0x" << std::hex << ret << std::endl;
+        return false;
+    }
+    return true;
+}
+
 bool OverlayRegionManager::updateOverlayBitmap(RegionId id, const std::string& bmpFilePath) {
     auto it = regions_.find(id);
     if (it == regions_.end()) return false;
@@ -464,6 +495,110 @@ void OverlayRegionManager::destroyRegionsOnChn(const MPP_CHN_S& chn) {
 bool OverlayRegionManager::isValid(RegionId id) const {
     return regions_.find(id) != regions_.end();
 }
+
+bool OverlayRegionManager::cleanCanvas(RegionId id)
+{
+    return updateOverlayCanvas(id, _cleanCanvas);
+}
+
+bool OverlayRegionManager::updateOverlayCanvas(RegionId id, 
+    std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback) {
+    // 1. 查找区域
+    auto it = regions_.find(id);
+    if (it == regions_.end()) {
+        std::cerr << "updateOverlayCanvas: invalid region id " << id << std::endl;
+        return false;
+    }
+    RegionInfo& info = it->second;
+    
+    // 2. 仅支持 OVERLAY / OVERLAY_EX 类型
+    if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX) {
+        std::cerr << "updateOverlayCanvas: only OVERLAY/OVERLAY_EX types are supported" << std::endl;
+        return false;
+    }
+    
+    // 3. 获取画布信息
+    RGN_CANVAS_INFO_S canvasInfo;
+    HI_S32 ret = HI_MPI_RGN_GetCanvasInfo(info.handle, &canvasInfo);
+    if (ret != HI_SUCCESS) {
+        std::cerr << "HI_MPI_RGN_GetCanvasInfo failed, ret=0x" << std::hex << ret << std::endl;
+        return false;
+    }
+    
+    // 4. 回调：用户绘制到画布
+    //    注意：画布内存的像素格式由创建区域时的 pixelFormat 决定（例如 ARGB1555）
+    //    用户需要按照该格式填充数据。
+    if (drawCallback) {
+        drawCallback(reinterpret_cast<void*>(static_cast<uintptr_t>(canvasInfo.u64VirtAddr)),
+                     canvasInfo.u32Stride,
+                     canvasInfo.stSize.u32Width,
+                     canvasInfo.stSize.u32Height);
+    } else {
+        std::cerr << "updateOverlayCanvas: drawCallback is null" << std::endl;
+        return false;
+    }
+    
+    // 5. 提交更新
+    ret = HI_MPI_RGN_UpdateCanvas(info.handle);
+    if (ret != HI_SUCCESS) {
+        std::cerr << "HI_MPI_RGN_UpdateCanvas failed, ret=0x" << std::hex << ret << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+
+
+bool OverlayRegionManager::updateOverlayBitMap(RegionId id,
+    std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback) {
+    // 1. 查找区域
+    auto it = regions_.find(id);
+    if (it == regions_.end()) {
+        std::cerr << "updateOverlayBitMap: invalid region id " << id << std::endl;
+        return false;
+    }
+    const RegionInfo& info = it->second;
+
+    // 2. 仅支持 OVERLAY / OVERLAY_EX
+    if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX) {
+        std::cerr << "updateOverlayBitMap: only OVERLAY/OVERLAY_EX types are supported" << std::endl;
+        return false;
+    }
+
+    // 3. 计算缓冲区大小
+    HI_U32 width = info.width;
+    HI_U32 height = info.height;
+    PIXEL_FORMAT_E pixelFormat = info.pixelFormat;
+    HI_U32 bpp = (pixelFormat == PIXEL_FORMAT_ARGB_8888) ? 4 : 2;
+    HI_U32 stride = width * bpp;   // 海思 BITMAP_S 的隐式 stride 通常就是 width * bpp
+
+    std::vector<HI_U8> bitmapBuf(stride * height);
+
+    // 4. 调用用户回调，在缓冲区上绘制
+    if (drawCallback) {
+        drawCallback(bitmapBuf.data(), stride, width, height);
+    } else {
+        std::cerr << "updateOverlayBitMap: drawCallback is null" << std::endl;
+        return false;
+    }
+
+    // 5. 构造 BITMAP_S 并设置到硬件
+    BITMAP_S stBitmap;
+    memset(&stBitmap, 0, sizeof(stBitmap));
+    stBitmap.u32Width       = width;
+    stBitmap.u32Height      = height;
+    stBitmap.enPixelFormat  = pixelFormat;
+    stBitmap.pData          = bitmapBuf.data();
+
+    HI_S32 ret = HI_MPI_RGN_SetBitMap(info.handle, &stBitmap);
+    if (ret != HI_SUCCESS) {
+        std::cerr << "HI_MPI_RGN_SetBitMap failed, ret=0x" << std::hex << ret << std::endl;
+        return false;
+    }
+    return true;
+}
+
+
 
 } // namespace region
 } // namespace hisi
