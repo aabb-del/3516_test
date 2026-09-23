@@ -59,6 +59,12 @@ include_directories(
     ../namespace/hi/pq/
     ../namespace/hi/region/
     ../namespace/hi/osd/
+    ../namespace/hi/mpp/
+    ../namespace/hi/vpss/
+    ../namespace/hi/bind/
+    ../namespace/hi/nnie/
+    ../namespace/hi/vgs/
+    ../namespace/hi/vb/
 )
 
 aux_source_directory(../namespace/hi/rtsp/ 3516_COMMON_SOURCE)
@@ -68,6 +74,12 @@ aux_source_directory(../namespace/hi/storage/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/pq/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/region/ 3516_COMMON_SOURCE)
 aux_source_directory(../namespace/hi/osd/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/mpp/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/vpss/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/bind/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/nnie/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/vgs/ 3516_COMMON_SOURCE)
+aux_source_directory(../namespace/hi/vb/ 3516_COMMON_SOURCE)
 
 
 

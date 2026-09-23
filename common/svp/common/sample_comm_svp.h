@@ -36,8 +36,8 @@ typedef enum hiSAMPLE_SVP_ERR_LEVEL_E
 }SAMPLE_SVP_ERR_LEVEL_E;
 
 
-#define SAMPLE_SVP_PRINTF(LevelStr,Msg, ...) do { fprintf(stderr,"[Level]:%s,[Func]:%s [Line]:%d [Info]:"Msg,LevelStr, __FUNCTION__, __LINE__,## __VA_ARGS__); } while (0)
-#define SAMPLE_SVP_PRINTF_RED(LevelStr,Msg, ...) do { fprintf(stderr,"\033[0;31m [Level]:%s,[Func]:%s [Line]:%d [Info]:"Msg"\033[0;39m\n",LevelStr, __FUNCTION__, __LINE__,## __VA_ARGS__); } while (0)
+#define SAMPLE_SVP_PRINTF(LevelStr,Msg, ...) do { fprintf(stderr,"[Level]:%s,[Func]:%s [Line]:%d [Info]:" Msg,LevelStr, __FUNCTION__, __LINE__,## __VA_ARGS__); } while (0)
+#define SAMPLE_SVP_PRINTF_RED(LevelStr,Msg, ...) do { fprintf(stderr,"\033[0;31m [Level]:%s,[Func]:%s [Line]:%d [Info]:" Msg "\033[0;39m\n",LevelStr, __FUNCTION__, __LINE__,## __VA_ARGS__); } while (0)
 /* system is unusable	*/
 #define SAMPLE_SVP_TRACE_FATAL(Msg,...)   SAMPLE_SVP_PRINTF_RED("Fatal",Msg,##__VA_ARGS__)
 /* action must be taken immediately */

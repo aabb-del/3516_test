@@ -7,20 +7,26 @@
 namespace hisi {
 namespace region {
 
-
 static void _cleanCanvas(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)
 {
-    memset(canvasAddr, 0x0, stride*height);
+    memset(canvasAddr, 0x0, stride * height);
 }
 
 // ==================== 静态辅助函数 ====================
-bool OverlayRegionManager::getBmpSize(const std::string& filePath, HI_U32& width, HI_U32& height) {
+bool OverlayRegionManager::getBmpSize(const std::string& filePath,
+                                      HI_U32& width, HI_U32& height)
+{
+    // ★ 空路径直接返回失败，调用方应使用带 width/height 的重载
+    if (filePath.empty()) {
+        return false;
+    }
+
     OSD_BITMAPFILEHEADER bmpFileHeader;
     OSD_BITMAPINFO bmpInfo;
     if (GetBmpInfo(filePath.c_str(), &bmpFileHeader, &bmpInfo) < 0) {
         return false;
     }
-    width = bmpInfo.bmiHeader.biWidth;
+    width  = bmpInfo.bmiHeader.biWidth;
     height = static_cast<HI_U32>(std::abs(bmpInfo.bmiHeader.biHeight));
     return true;
 }
@@ -36,7 +42,6 @@ OverlayRegionManager& OverlayRegionManager::getInstance() {
 }
 
 OverlayRegionManager::~OverlayRegionManager() {
-    // 销毁所有区域
     for (auto& pair : regions_) {
         const auto& info = pair.second;
         if (info.attached) {
@@ -57,18 +62,18 @@ bool OverlayRegionManager::createRegionObject(const RegionInfo& info, HI_U32 bgC
         case RegionType::OVERLAY:
             stRegionAttr.enType = OVERLAY_RGN;
             stRegionAttr.unAttr.stOverlay.enPixelFmt = info.pixelFormat;
-            stRegionAttr.unAttr.stOverlay.stSize.u32Width = info.width;
+            stRegionAttr.unAttr.stOverlay.stSize.u32Width  = info.width;
             stRegionAttr.unAttr.stOverlay.stSize.u32Height = info.height;
-            stRegionAttr.unAttr.stOverlay.u32BgColor = bgColor;
-            stRegionAttr.unAttr.stOverlay.u32CanvasNum = 1;
+            stRegionAttr.unAttr.stOverlay.u32BgColor       = bgColor;
+            stRegionAttr.unAttr.stOverlay.u32CanvasNum     = 1;
             break;
         case RegionType::OVERLAY_EX:
             stRegionAttr.enType = OVERLAYEX_RGN;
             stRegionAttr.unAttr.stOverlayEx.enPixelFmt = info.pixelFormat;
-            stRegionAttr.unAttr.stOverlayEx.stSize.u32Width = info.width;
+            stRegionAttr.unAttr.stOverlayEx.stSize.u32Width  = info.width;
             stRegionAttr.unAttr.stOverlayEx.stSize.u32Height = info.height;
-            stRegionAttr.unAttr.stOverlayEx.u32BgColor = bgColor;
-            stRegionAttr.unAttr.stOverlayEx.u32CanvasNum = 1;
+            stRegionAttr.unAttr.stOverlayEx.u32BgColor       = bgColor;
+            stRegionAttr.unAttr.stOverlayEx.u32CanvasNum     = 1;
             break;
         case RegionType::COVER:
             stRegionAttr.enType = COVER_RGN;
@@ -99,49 +104,49 @@ bool OverlayRegionManager::attachRegionToChn(RegionInfo& info, const RegionDispl
     switch (info.type) {
         case RegionType::OVERLAY:
             stChnAttr.enType = OVERLAY_RGN;
-            stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = attr.x;
-            stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = attr.y;
-            stChnAttr.unChnAttr.stOverlayChn.u32Layer = attr.layer;
-            stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = attr.fgAlpha;
-            stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = attr.bgAlpha;
+            stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X  = attr.x;
+            stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y  = attr.y;
+            stChnAttr.unChnAttr.stOverlayChn.u32Layer      = attr.layer;
+            stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha    = attr.fgAlpha;
+            stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha    = attr.bgAlpha;
             break;
         case RegionType::OVERLAY_EX:
             stChnAttr.enType = OVERLAYEX_RGN;
             stChnAttr.unChnAttr.stOverlayExChn.stPoint.s32X = attr.x;
             stChnAttr.unChnAttr.stOverlayExChn.stPoint.s32Y = attr.y;
-            stChnAttr.unChnAttr.stOverlayExChn.u32Layer = attr.layer;
-            stChnAttr.unChnAttr.stOverlayExChn.u32FgAlpha = attr.fgAlpha;
-            stChnAttr.unChnAttr.stOverlayExChn.u32BgAlpha = attr.bgAlpha;
+            stChnAttr.unChnAttr.stOverlayExChn.u32Layer     = attr.layer;
+            stChnAttr.unChnAttr.stOverlayExChn.u32FgAlpha   = attr.fgAlpha;
+            stChnAttr.unChnAttr.stOverlayExChn.u32BgAlpha   = attr.bgAlpha;
             break;
         case RegionType::COVER:
             stChnAttr.enType = COVER_RGN;
             stChnAttr.unChnAttr.stCoverChn.enCoverType = AREA_RECT;
             stChnAttr.unChnAttr.stCoverChn.stRect.s32X = attr.x;
             stChnAttr.unChnAttr.stCoverChn.stRect.s32Y = attr.y;
-            stChnAttr.unChnAttr.stCoverChn.stRect.u32Width = info.coverAttr.width;
+            stChnAttr.unChnAttr.stCoverChn.stRect.u32Width  = info.coverAttr.width;
             stChnAttr.unChnAttr.stCoverChn.stRect.u32Height = info.coverAttr.height;
-            stChnAttr.unChnAttr.stCoverChn.u32Color = info.coverAttr.color;
+            stChnAttr.unChnAttr.stCoverChn.u32Color     = info.coverAttr.color;
             stChnAttr.unChnAttr.stCoverChn.enCoordinate = RGN_ABS_COOR;
-            stChnAttr.unChnAttr.stCoverChn.u32Layer = attr.layer;
+            stChnAttr.unChnAttr.stCoverChn.u32Layer     = attr.layer;
             break;
         case RegionType::COVER_EX:
             stChnAttr.enType = COVEREX_RGN;
             stChnAttr.unChnAttr.stCoverExChn.enCoverType = AREA_RECT;
             stChnAttr.unChnAttr.stCoverExChn.stRect.s32X = attr.x;
             stChnAttr.unChnAttr.stCoverExChn.stRect.s32Y = attr.y;
-            stChnAttr.unChnAttr.stCoverExChn.stRect.u32Width = info.coverAttr.width;
+            stChnAttr.unChnAttr.stCoverExChn.stRect.u32Width  = info.coverAttr.width;
             stChnAttr.unChnAttr.stCoverExChn.stRect.u32Height = info.coverAttr.height;
-            stChnAttr.unChnAttr.stCoverExChn.u32Color = info.coverAttr.color;
-            stChnAttr.unChnAttr.stCoverExChn.u32Layer = attr.layer;
+            stChnAttr.unChnAttr.stCoverExChn.u32Color   = info.coverAttr.color;
+            stChnAttr.unChnAttr.stCoverExChn.u32Layer   = attr.layer;
             break;
         case RegionType::MOSAIC:
             stChnAttr.enType = MOSAIC_RGN;
             stChnAttr.unChnAttr.stMosaicChn.stRect.s32X = attr.x;
             stChnAttr.unChnAttr.stMosaicChn.stRect.s32Y = attr.y;
-            stChnAttr.unChnAttr.stMosaicChn.stRect.u32Width = info.mosaicAttr.width;
+            stChnAttr.unChnAttr.stMosaicChn.stRect.u32Width  = info.mosaicAttr.width;
             stChnAttr.unChnAttr.stMosaicChn.stRect.u32Height = info.mosaicAttr.height;
-            stChnAttr.unChnAttr.stMosaicChn.enBlkSize = info.mosaicAttr.blkSize;
-            stChnAttr.unChnAttr.stMosaicChn.u32Layer = attr.layer;
+            stChnAttr.unChnAttr.stMosaicChn.enBlkSize   = info.mosaicAttr.blkSize;
+            stChnAttr.unChnAttr.stMosaicChn.u32Layer    = attr.layer;
             break;
         default:
             return false;
@@ -155,8 +160,16 @@ bool OverlayRegionManager::attachRegionToChn(RegionInfo& info, const RegionDispl
     return true;
 }
 
-bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& info, const std::string& filePath) {
-    // 1. 获取BMP信息（宽、高、位深度）
+bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle,
+                                            const RegionInfo& info,
+                                            const std::string& filePath)
+{
+    // ★ 空路径 = 无位图，视为成功
+    if (filePath.empty()) {
+        return true;
+    }
+
+    // 1. 获取 BMP 信息
     OSD_BITMAPFILEHEADER bmpFileHeader;
     OSD_BITMAPINFO bmpInfo;
     if (GetBmpInfo(filePath.c_str(), &bmpFileHeader, &bmpInfo) < 0) {
@@ -164,11 +177,13 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
         return false;
     }
 
-    HI_U32 imgWidth = bmpInfo.bmiHeader.biWidth;
+    HI_U32 imgWidth  = bmpInfo.bmiHeader.biWidth;
     HI_U32 imgHeight = std::abs(bmpInfo.bmiHeader.biHeight);
-    HI_U16 bitCount = bmpInfo.bmiHeader.biBitCount;
+    HI_U16 bitCount  = bmpInfo.bmiHeader.biBitCount;
     if (imgWidth != info.width || imgHeight != info.height) {
-        std::cerr << "BMP size mismatch" << std::endl;
+        std::cerr << "BMP size mismatch, need "
+                  << info.width << "x" << info.height
+                  << " got " << imgWidth << "x" << imgHeight << std::endl;
         return false;
     }
     if (bitCount != 24 && bitCount != 32) {
@@ -179,7 +194,7 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
     // 2. 打开文件读取像素数据
     FILE* fp = fopen(filePath.c_str(), "rb");
     if (!fp) {
-        std::cerr << "Cannot open BMP file" << std::endl;
+        std::cerr << "Cannot open BMP file: " << filePath << std::endl;
         return false;
     }
     fseek(fp, bmpFileHeader.bfOffBits, SEEK_SET);
@@ -192,20 +207,19 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
     }
     fclose(fp);
 
-    // 3. 转换为目标像素格式 (ARGB1555 或 RGB565)
+    // 3. 转换为目标像素格式
     HI_U32 bytesPerPixel = (info.pixelFormat == PIXEL_FORMAT_ARGB_8888) ? 4 : 2;
     std::vector<HI_U8> outData(info.width * info.height * bytesPerPixel);
 
     for (HI_U32 y = 0; y < imgHeight; ++y) {
-        // BMP 存储为 bottom-up，通常需要翻转，这里按需选择
-        HI_U32 srcRow = imgHeight - 1 - y; // 如果图像上下颠倒，改为 imgHeight - 1 - y
+        HI_U32 srcRow = imgHeight - 1 - y;
         const HI_U8* row = bmpData.data() + srcRow * rowSize;
         HI_U8* dst = outData.data() + y * info.width * bytesPerPixel;
         for (HI_U32 x = 0; x < imgWidth; ++x) {
             if (bitCount == 24) {
-                HI_U32 b = row[x*3];
-                HI_U32 g = row[x*3+1];
-                HI_U32 r = row[x*3+2];
+                HI_U32 b = row[x * 3];
+                HI_U32 g = row[x * 3 + 1];
+                HI_U32 r = row[x * 3 + 2];
                 if (info.pixelFormat == PIXEL_FORMAT_RGB_565) {
                     HI_U16 rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
                     *((HI_U16*)dst) = rgb565;
@@ -215,17 +229,18 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
                 }
                 dst += 2;
             } else { // 32-bit
-                HI_U32 b = row[x*4];
-                HI_U32 g = row[x*4+1];
-                HI_U32 r = row[x*4+2];
-                HI_U32 a = row[x*4+3];
+                HI_U32 b = row[x * 4];
+                HI_U32 g = row[x * 4 + 1];
+                HI_U32 r = row[x * 4 + 2];
+                HI_U32 a = row[x * 4 + 3];
                 if (info.pixelFormat == PIXEL_FORMAT_ARGB_8888) {
-                    dst[x*4+0] = r;
-                    dst[x*4+1] = g;
-                    dst[x*4+2] = b;
-                    dst[x*4+3] = a;
+                    dst[x * 4 + 0] = r;
+                    dst[x * 4 + 1] = g;
+                    dst[x * 4 + 2] = b;
+                    dst[x * 4 + 3] = a;
                 } else if (info.pixelFormat == PIXEL_FORMAT_ARGB_1555) {
-                    HI_U16 argb1555 = ((a > 128 ? 1 : 0) << 15) | ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+                    HI_U16 argb1555 = ((a > 128 ? 1 : 0) << 15)
+                                    | ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
                     *((HI_U16*)dst) = argb1555;
                     dst += 2;
                 }
@@ -237,9 +252,9 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
     BITMAP_S stBitmap;
     memset(&stBitmap, 0, sizeof(stBitmap));
     stBitmap.enPixelFormat = info.pixelFormat;
-    stBitmap.u32Width = info.width;
-    stBitmap.u32Height = info.height;
-    stBitmap.pData = outData.data();
+    stBitmap.u32Width      = info.width;
+    stBitmap.u32Height     = info.height;
+    stBitmap.pData         = outData.data();
 
     HI_S32 ret = HI_MPI_RGN_SetBitMap(handle, &stBitmap);
     if (ret != HI_SUCCESS) {
@@ -249,8 +264,6 @@ bool OverlayRegionManager::loadBmpToRegion(RGN_HANDLE handle, const RegionInfo& 
     return true;
 }
 
-
-
 // ==================== 公共创建接口 ====================
 RegionId OverlayRegionManager::createOverlay(const MPP_CHN_S& chn,
                                              RegionType type,
@@ -258,8 +271,10 @@ RegionId OverlayRegionManager::createOverlay(const MPP_CHN_S& chn,
                                              PIXEL_FORMAT_E pixelFormat,
                                              const RegionDisplayAttr& attr,
                                              HI_U32 bgColor) {
-    HI_U32 w, h;
+    HI_U32 w = 0, h = 0;
     if (!getBmpSize(bmpFilePath, w, h)) {
+        std::cerr << "createOverlay: getBmpSize failed for "
+                  << bmpFilePath << std::endl;
         return 0;
     }
     return createOverlay(chn, type, w, h, bmpFilePath, pixelFormat, attr, bgColor);
@@ -275,16 +290,20 @@ RegionId OverlayRegionManager::createOverlay(const MPP_CHN_S& chn,
     if (type != RegionType::OVERLAY && type != RegionType::OVERLAY_EX) {
         return 0;
     }
+    if (width == 0 || height == 0) {
+        std::cerr << "createOverlay: invalid size " << width << "x" << height << std::endl;
+        return 0;
+    }
 
-    RegionId id = next_id_++;
+    RegionId   id     = next_id_++;
     RGN_HANDLE handle = next_handle_++;
 
     RegionInfo info;
-    info.handle = handle;
-    info.chn = chn;
-    info.type = type;
-    info.width = width;
-    info.height = height;
+    info.handle      = handle;
+    info.chn         = chn;
+    info.type        = type;
+    info.width       = width;
+    info.height      = height;
     info.pixelFormat = pixelFormat;
 
     if (!createRegionObject(info, bgColor)) {
@@ -294,14 +313,19 @@ RegionId OverlayRegionManager::createOverlay(const MPP_CHN_S& chn,
         HI_MPI_RGN_Destroy(handle);
         return 0;
     }
+
+    // ★ 先登记（regions_ 里要有，cleanCanvas 才找得到）
+    info.attached = true;
+    regions_[id]  = info;
+    chnToIds_[hashChn(chn)].push_back(id);
+
+    // 再尝试加载 BMP；空路径会被 loadBmpToRegion 视为成功
     if (!loadBmpToRegion(handle, info, bmpFilePath)) {
-        std::cerr << "Warning: loadBmpToRegion failed for " << bmpFilePath << std::endl;
-        cleanCanvas(handle);
+        std::cerr << "Warning: loadBmpToRegion failed for "
+                  << bmpFilePath << std::endl;
+        cleanCanvas(id);   // ★ 用 id，不是 handle
     }
 
-    info.attached = true;
-    regions_[id] = info;
-    chnToIds_[hashChn(chn)].push_back(id);
     return id;
 }
 
@@ -313,13 +337,13 @@ RegionId OverlayRegionManager::createCover(const MPP_CHN_S& chn,
         return 0;
     }
 
-    RegionId id = next_id_++;
+    RegionId   id     = next_id_++;
     RGN_HANDLE handle = next_handle_++;
 
     RegionInfo info;
-    info.handle = handle;
-    info.chn = chn;
-    info.type = type;
+    info.handle    = handle;
+    info.chn       = chn;
+    info.type      = type;
     info.coverAttr = coverAttr;
 
     if (!createRegionObject(info, 0)) {
@@ -331,7 +355,7 @@ RegionId OverlayRegionManager::createCover(const MPP_CHN_S& chn,
     }
 
     info.attached = true;
-    regions_[id] = info;
+    regions_[id]  = info;
     chnToIds_[hashChn(chn)].push_back(id);
     return id;
 }
@@ -339,13 +363,13 @@ RegionId OverlayRegionManager::createCover(const MPP_CHN_S& chn,
 RegionId OverlayRegionManager::createMosaic(const MPP_CHN_S& chn,
                                             const MosaicAttr& mosaicAttr,
                                             const RegionDisplayAttr& attr) {
-    RegionId id = next_id_++;
+    RegionId   id     = next_id_++;
     RGN_HANDLE handle = next_handle_++;
 
     RegionInfo info;
-    info.handle = handle;
-    info.chn = chn;
-    info.type = RegionType::MOSAIC;
+    info.handle     = handle;
+    info.chn        = chn;
+    info.type       = RegionType::MOSAIC;
     info.mosaicAttr = mosaicAttr;
 
     if (!createRegionObject(info, 0)) {
@@ -357,7 +381,7 @@ RegionId OverlayRegionManager::createMosaic(const MPP_CHN_S& chn,
     }
 
     info.attached = true;
-    regions_[id] = info;
+    regions_[id]  = info;
     chnToIds_[hashChn(chn)].push_back(id);
     return id;
 }
@@ -374,10 +398,10 @@ bool OverlayRegionManager::setOverlayBitmapByData(RegionId id,
 
     BITMAP_S stBitmap;
     memset(&stBitmap, 0, sizeof(stBitmap));
-    stBitmap.u32Width       = info.width;
-    stBitmap.u32Height      = info.height;
-    stBitmap.enPixelFormat  = pixelFormat;
-    stBitmap.pData          = const_cast<HI_U8*>(bitmapData.data());
+    stBitmap.u32Width      = info.width;
+    stBitmap.u32Height     = info.height;
+    stBitmap.enPixelFormat = pixelFormat;
+    stBitmap.pData         = const_cast<HI_U8*>(bitmapData.data());
 
     HI_S32 ret = HI_MPI_RGN_SetBitMap(info.handle, &stBitmap);
     if (ret != HI_SUCCESS) {
@@ -393,7 +417,7 @@ bool OverlayRegionManager::updateOverlayBitmap(RegionId id, const std::string& b
     const auto& info = it->second;
     if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX) return false;
 
-    HI_U32 w, h;
+    HI_U32 w = 0, h = 0;
     if (!getBmpSize(bmpFilePath, w, h)) return false;
     if (w != info.width || h != info.height) {
         std::cerr << "Bitmap size mismatch" << std::endl;
@@ -470,7 +494,6 @@ bool OverlayRegionManager::destroyRegion(RegionId id) {
     }
     HI_MPI_RGN_Destroy(info.handle);
 
-    // 从通道索引中移除
     HI_U32 key = hashChn(info.chn);
     auto vecIt = chnToIds_.find(key);
     if (vecIt != chnToIds_.end()) {
@@ -486,7 +509,7 @@ void OverlayRegionManager::destroyRegionsOnChn(const MPP_CHN_S& chn) {
     HI_U32 key = hashChn(chn);
     auto it = chnToIds_.find(key);
     if (it == chnToIds_.end()) return;
-    std::vector<RegionId> ids = it->second; // 拷贝
+    std::vector<RegionId> ids = it->second;
     for (RegionId id : ids) {
         destroyRegion(id);
     }
@@ -501,33 +524,27 @@ bool OverlayRegionManager::cleanCanvas(RegionId id)
     return updateOverlayCanvas(id, _cleanCanvas);
 }
 
-bool OverlayRegionManager::updateOverlayCanvas(RegionId id, 
+bool OverlayRegionManager::updateOverlayCanvas(RegionId id,
     std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback) {
-    // 1. 查找区域
     auto it = regions_.find(id);
     if (it == regions_.end()) {
         std::cerr << "updateOverlayCanvas: invalid region id " << id << std::endl;
         return false;
     }
     RegionInfo& info = it->second;
-    
-    // 2. 仅支持 OVERLAY / OVERLAY_EX 类型
+
     if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX) {
-        std::cerr << "updateOverlayCanvas: only OVERLAY/OVERLAY_EX types are supported" << std::endl;
+        std::cerr << "updateOverlayCanvas: only OVERLAY/OVERLAY_EX supported" << std::endl;
         return false;
     }
-    
-    // 3. 获取画布信息
+
     RGN_CANVAS_INFO_S canvasInfo;
     HI_S32 ret = HI_MPI_RGN_GetCanvasInfo(info.handle, &canvasInfo);
     if (ret != HI_SUCCESS) {
         std::cerr << "HI_MPI_RGN_GetCanvasInfo failed, ret=0x" << std::hex << ret << std::endl;
         return false;
     }
-    
-    // 4. 回调：用户绘制到画布
-    //    注意：画布内存的像素格式由创建区域时的 pixelFormat 决定（例如 ARGB1555）
-    //    用户需要按照该格式填充数据。
+
     if (drawCallback) {
         drawCallback(reinterpret_cast<void*>(static_cast<uintptr_t>(canvasInfo.u64VirtAddr)),
                      canvasInfo.u32Stride,
@@ -537,21 +554,17 @@ bool OverlayRegionManager::updateOverlayCanvas(RegionId id,
         std::cerr << "updateOverlayCanvas: drawCallback is null" << std::endl;
         return false;
     }
-    
-    // 5. 提交更新
+
     ret = HI_MPI_RGN_UpdateCanvas(info.handle);
     if (ret != HI_SUCCESS) {
         std::cerr << "HI_MPI_RGN_UpdateCanvas failed, ret=0x" << std::hex << ret << std::endl;
         return false;
     }
-    
     return true;
 }
 
-
 bool OverlayRegionManager::updateOverlayBitMap(RegionId id,
     std::function<void(void* canvasAddr, HI_U32 stride, HI_U32 width, HI_U32 height)> drawCallback) {
-    // 1. 查找区域
     auto it = regions_.find(id);
     if (it == regions_.end()) {
         std::cerr << "updateOverlayBitMap: invalid region id " << id << std::endl;
@@ -559,22 +572,19 @@ bool OverlayRegionManager::updateOverlayBitMap(RegionId id,
     }
     const RegionInfo& info = it->second;
 
-    // 2. 仅支持 OVERLAY / OVERLAY_EX
     if (info.type != RegionType::OVERLAY && info.type != RegionType::OVERLAY_EX) {
-        std::cerr << "updateOverlayBitMap: only OVERLAY/OVERLAY_EX types are supported" << std::endl;
+        std::cerr << "updateOverlayBitMap: only OVERLAY/OVERLAY_EX supported" << std::endl;
         return false;
     }
 
-    // 3. 计算缓冲区大小
-    HI_U32 width = info.width;
+    HI_U32 width  = info.width;
     HI_U32 height = info.height;
     PIXEL_FORMAT_E pixelFormat = info.pixelFormat;
-    HI_U32 bpp = (pixelFormat == PIXEL_FORMAT_ARGB_8888) ? 4 : 2;
-    HI_U32 stride = width * bpp;   // 海思 BITMAP_S 的隐式 stride 通常就是 width * bpp
+    HI_U32 bpp    = (pixelFormat == PIXEL_FORMAT_ARGB_8888) ? 4 : 2;
+    HI_U32 stride = width * bpp;
 
     std::vector<HI_U8> bitmapBuf(stride * height);
 
-    // 4. 调用用户回调，在缓冲区上绘制
     if (drawCallback) {
         drawCallback(bitmapBuf.data(), stride, width, height);
     } else {
@@ -582,13 +592,12 @@ bool OverlayRegionManager::updateOverlayBitMap(RegionId id,
         return false;
     }
 
-    // 5. 构造 BITMAP_S 并设置到硬件
     BITMAP_S stBitmap;
     memset(&stBitmap, 0, sizeof(stBitmap));
-    stBitmap.u32Width       = width;
-    stBitmap.u32Height      = height;
-    stBitmap.enPixelFormat  = pixelFormat;
-    stBitmap.pData          = bitmapBuf.data();
+    stBitmap.u32Width      = width;
+    stBitmap.u32Height     = height;
+    stBitmap.enPixelFormat = pixelFormat;
+    stBitmap.pData         = bitmapBuf.data();
 
     HI_S32 ret = HI_MPI_RGN_SetBitMap(info.handle, &stBitmap);
     if (ret != HI_SUCCESS) {
@@ -597,8 +606,6 @@ bool OverlayRegionManager::updateOverlayBitMap(RegionId id,
     }
     return true;
 }
-
-
 
 } // namespace region
 } // namespace hisi
